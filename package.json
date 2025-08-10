@@ -1,15 +1,9 @@
 {
-  "name": "bar_app_web",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "devDependencies": {
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^3.4.4"
+  },
+  "scripts": {
+    "tailwind:init": "node_modules\\.bin\\tailwindcss init",
+    "tailwind:watch": "node_modules\\.bin\\tailwindcss -i .\\app\\static\\css\\input.css -o .\\app\\static\\css\\output.css --watch"
   }
 }

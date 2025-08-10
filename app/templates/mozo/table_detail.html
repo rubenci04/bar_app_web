@@ -3,121 +3,137 @@
 <input type="hidden" id="csrf_token_js" value="{{ csrf_token() }}">
 
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-slate-100">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">
         Mesa {{ table.number }} 
-        <span class="text-lg font-normal text-slate-400">({{ table.status }})</span>
+        <span class="text-lg font-normal text-gray-500 dark:text-slate-400">({{ table.status }})</span>
     </h1>
-    <a href="{{ url_for('mozo.tables_view') }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-700 hover:bg-slate-600 transition-colors">
+    <a href="{{ url_for('mozo.tables_view') }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-800 dark:text-slate-100 transition-colors">
         <i class="fa-solid fa-arrow-left mr-2"></i>Volver a Mesas
     </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     
-    <div class="lg:col-span-2 bg-slate-800 p-6 rounded-lg shadow-lg">
-        <h2 class="text-2xl font-semibold mb-4 text-slate-100">Pedido Actual</h2>
+    <div class="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-slate-100">Pedido Actual</h2>
         {% if current_order %}
-            <p class="mb-4 text-slate-400">ID del Pedido: #{{ current_order.id }}</p>
+            <p class="mb-4 text-gray-500 dark:text-slate-400">ID del Pedido: #{{ current_order.id }}</p>
             
-            <div id="order-items-list" class="mb-4 border-t border-b border-slate-700 divide-y divide-slate-700">
+            <div id="order-items-list" class="mb-4 border-t border-b border-gray-200 dark:border-slate-700 divide-y divide-gray-200 dark:divide-slate-700">
                 {% for item in current_order.items %}
                 <div id="item-row-{{ item.id }}" class="py-3 flex justify-between items-center">
                     <div>
-                        <p class="font-medium text-slate-100">{{ item.product.name }}</p>
-                        <p class="text-sm text-slate-400">{{ item.quantity }} x ${{ "%.2f"|format(item.unit_price) }}</p>
+                        <p class="font-medium text-gray-800 dark:text-slate-100">{{ item.display_name or item.product.name }}</p>
+                        <p class="text-sm text-gray-500 dark:text-slate-400">{{ item.quantity }} x ${{ "%.2f"|format(item.unit_price) }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="font-semibold text-slate-100">${{ "%.2f"|format(item.subtotal) }}</p>
-                        <button onclick="removeItem({{ item.id }}, '{{ item.product.name | e }}', {{ item.product.id }})" class="text-xs text-red-400 hover:text-red-300 transition-colors">Quitar</button>
+                        <p class="font-semibold text-gray-800 dark:text-slate-100">${{ "%.2f"|format(item.subtotal) }}</p>
+                        <button onclick="removeItem({{ item.id }}, '{{ (item.display_name or item.product.name) | e }}', {{ item.product.id }})" class="text-xs text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors">Quitar</button>
                     </div>
                 </div>
                 {% endfor %}
                 {% if not current_order.items %}
-                <p id="no-items-message" class="text-slate-500 py-4 text-center">No hay ítems en este pedido.</p>
+                <p id="no-items-message" class="text-gray-400 dark:text-slate-500 py-4 text-center">No hay ítems en este pedido.</p>
                 {% endif %}
             </div>
             
             <div class="flex justify-between items-center mt-6">
-                <p class="text-2xl font-bold text-slate-100">Total: <span id="order-total" class="text-amber-500">${{ "%.2f"|format(current_order.total_amount) }}</span></p>
+                <p class="text-2xl font-bold text-gray-800 dark:text-slate-100">Total: <span id="order-total" class="text-blue-600 dark:text-blue-500">${{ "%.2f"|format(current_order.total_amount) }}</span></p>
                 <div class="flex flex-wrap gap-3 justify-end">
-                    <button id="open-payment-modal-btn" type="button" class="px-4 py-2 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 transition-colors text-white {% if not current_order.items %}opacity-50 cursor-not-allowed{% endif %}" {% if not current_order.items %}disabled title="Añada ítems para poder cobrar"{% endif %}>
+                    <button id="open-payment-modal-btn" type="button" class="px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors {% if not current_order.items %}opacity-50 cursor-not-allowed{% endif %}" {% if not current_order.items %}disabled{% endif %}>
                         <i class="fa-solid fa-dollar-sign mr-2"></i>Cobrar Pedido
                     </button>
-                    <form action="{{ url_for('mozo.cancel_order', order_id=current_order.id) }}" method="POST" onsubmit="return confirm('¿Desea CANCELAR este pedido? El stock de los productos será devuelto.');">
+                    <form action="{{ url_for('mozo.cancel_order', order_id=current_order.id) }}" method="POST" onsubmit="return confirm('¿Desea CANCELAR este pedido?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 transition-colors text-white">
-                            <i class="fa-solid fa-times mr-2"></i>Cancelar Pedido
-                        </button>
+                        <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors"><i class="fa-solid fa-times mr-2"></i>Cancelar</button>
                     </form>
+                    {% if current_order and not current_order.items %}
+                    <form action="{{ url_for('mozo.liberate_table', table_id=table.id) }}" method="POST" onsubmit="return confirm('¿Seguro que quiere forzar la liberación de esta mesa?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-gray-600 hover:bg-gray-700 text-white transition-colors">Forzar Liberación</button>
+                    </form>
+                    {% endif %}
                 </div>
             </div>
         {% else %}
-            <p class="text-slate-400 mb-4">Esta mesa está vacía.</p>
-            <div class="flex gap-4">
-                <form action="{{ url_for('mozo.start_table_order', table_id=table.id) }}" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-amber-600 hover:bg-amber-700 transition-colors text-white">
-                        <i class="fa-solid fa-play mr-2"></i>Iniciar Pedido
-                    </button>
-                </form>
-                 <form action="{{ url_for('mozo.liberate_table', table_id=table.id) }}" method="POST" onsubmit="return confirm('¿Seguro que quiere forzar la liberación de esta mesa? Use esta opción si la mesa figura ocupada por error.');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-slate-600 hover:bg-slate-700 transition-colors text-white">
-                        Forzar Liberación
-                    </button>
-                </form>
-            </div>
+            <p class="text-gray-500 dark:text-slate-400 mb-4">Esta mesa está vacía.</p>
+            <form action="{{ url_for('mozo.start_table_order', table_id=table.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"><i class="fa-solid fa-play mr-2"></i>Iniciar Pedido</button>
+            </form>
         {% endif %}
     </div>
-
+    
     {% if current_order %}
-    <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
-        <h2 class="text-2xl font-semibold mb-4 text-slate-100">Añadir Productos</h2>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-slate-100">Añadir Productos</h2>
         <form id="add-item-form" class="space-y-4">
             <div>
-                <label for="product_id" class="block text-sm font-medium text-slate-300">Producto</label>
-                <select name="product_id" id="product_id" required class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-200 rounded-md focus:ring-2 focus:ring-amber-500 transition">
+                <label for="product_id" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Producto</label>
+                <select name="product_id" id="product_id" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition text-gray-800 dark:text-slate-100">
                     <option value="">Selecciona un producto...</option>
-                    {% for type, products_in_type in products_by_category.items() %}
-                    <optgroup label="{{ type }}">
-                        {% for product in products_in_type %}
-                        <option value="{{ product.id }}" data-stock="{{ product.stock }}">{{ product.name }} - (Stock: {{ product.stock }})</option>
-                        {% endfor %}
-                    </optgroup>
-                    {% endfor %}
+                    {% for type, products_in_type in products_by_category.items() %}<optgroup label="{{ type }}">{% for product in products_in_type %}<option value="{{ product.id }}" data-stock="{{ product.stock }}">{{ product.name }} - (Stock: {{ product.stock }})</option>{% endfor %}</optgroup>{% endfor %}
                 </select>
             </div>
             <div>
-                <label for="quantity" class="block text-sm font-medium text-slate-300">Cantidad</label>
-                <input type="number" name="quantity" id="quantity" value="1" min="1" required class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-200 rounded-md focus:ring-2 focus:ring-amber-500 transition">
+                <label for="quantity" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Cantidad</label>
+                <input type="number" name="quantity" id="quantity" value="1" min="1" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition text-gray-800 dark:text-slate-100">
             </div>
-            <button type="submit" class="w-full px-4 py-2 rounded-lg font-semibold bg-amber-600 hover:bg-amber-700 transition-colors text-white">
-                <i class="fa-solid fa-plus mr-2"></i>Añadir al Pedido
-            </button>
+            <button type="submit" class="w-full px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"><i class="fa-solid fa-plus mr-2"></i>Añadir</button>
         </form>
+        <div class="mt-4 border-t border-gray-200 dark:border-slate-700 pt-4">
+             <button id="open-half-pizza-modal-btn" type="button" class="w-full px-4 py-2 rounded-lg font-semibold bg-yellow-500 hover:bg-yellow-600 text-white transition-colors">
+                <i class="fa-solid fa-pizza-slice mr-2"></i>Añadir Pizza Mitad y Mitad
+            </button>
+        </div>
         <div id="add-item-message" class="mt-4 text-sm"></div>
     </div>
     {% endif %}
 </div>
 
 {% if current_order %}
-<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
-    <div class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-sm">
-        <h3 class="text-xl font-bold text-slate-100 mb-6">Confirmar Pago del Pedido #{{ current_order.id }}</h3>
+<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-slate-700">
+        <h3 class="text-xl font-bold text-gray-800 dark:text-slate-100 mb-6">Confirmar Pago</h3>
         <form id="payment-form" action="{{ url_for('mozo.mark_order_paid', order_id=current_order.id) }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-6">
-                <label for="payment_method" class="block text-sm font-medium text-slate-300 mb-2">Método de Pago</label>
-                <select name="payment_method" id="payment_method" required class="block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-200 rounded-md focus:ring-2 focus:ring-emerald-500 transition">
+                <label for="payment_method" class="block text-sm font-medium text-gray-600 dark:text-slate-300 mb-2">Método de Pago</label>
+                <select name="payment_method" id="payment_method" required class="block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-800 dark:text-slate-100 rounded-md shadow-sm focus:ring-2 focus:ring-green-500 transition">
                     <option value="" disabled selected>Seleccione un método...</option>
-                    {% for method in payment_methods %}
-                    <option value="{{ method }}">{{ method }}</option>
-                    {% endfor %}
+                    {% for method in payment_methods %}<option value="{{ method }}">{{ method }}</option>{% endfor %}
                 </select>
             </div>
             <div class="flex justify-end gap-4">
-                <button type="button" id="close-payment-modal-btn" class="px-4 py-2 rounded-lg font-semibold bg-slate-600 hover:bg-slate-700 transition-colors text-white">Cancelar</button>
-                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 transition-colors text-white">Confirmar Pago</button>
+                <button type="button" id="close-payment-modal-btn" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 text-gray-800 dark:text-slate-100 transition-colors">Cancelar</button>
+                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors">Confirmar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="half-pizza-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-slate-700">
+        <h3 class="text-xl font-bold text-gray-800 dark:text-slate-100 mb-6">Seleccionar Sabores de Pizza</h3>
+        <form id="half-pizza-form" class="space-y-4">
+            <div>
+                <label for="pizza1_id" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Primera Mitad</label>
+                <select name="pizza1_id" id="pizza1_id" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-800 dark:text-slate-100 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition">
+                    <option value="">Selecciona el primer sabor...</option>
+                    {% for pizza in pizzas %}<option value="{{ pizza.id }}">{{ pizza.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="pizza2_id" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Segunda Mitad</label>
+                <select name="pizza2_id" id="pizza2_id" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-800 dark:text-slate-100 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition">
+                    <option value="">Selecciona el segundo sabor...</option>
+                    {% for pizza in pizzas %}<option value="{{ pizza.id }}">{{ pizza.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <p class="text-xs text-center text-gray-500 dark:text-slate-400 pt-2">Se aplicará un recargo de $500 por la combinación.</p>
+            <div class="flex justify-end gap-4 pt-4">
+                <button type="button" id="close-half-pizza-modal-btn" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 text-gray-800 dark:text-slate-100 transition-colors">Cancelar</button>
+                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">Añadir Pizza</button>
             </div>
         </form>
     </div>
@@ -131,142 +147,132 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrfToken = document.getElementById('csrf_token_js').value;
     const orderId = {{ current_order.id if current_order else 'null' }};
 
-    const addItemForm = document.getElementById('add-item-form');
-    const paymentModal = document.getElementById('payment-modal');
-    const openPaymentModalBtn = document.getElementById('open-payment-modal-btn');
-    const closePaymentModalBtn = document.getElementById('close-payment-modal-btn');
-
-    // --- MANEJO DEL MODAL DE PAGO ---
-    if (openPaymentModalBtn && paymentModal && closePaymentModalBtn) {
-        openPaymentModalBtn.addEventListener('click', () => paymentModal.classList.remove('hidden'));
-        closePaymentModalBtn.addEventListener('click', () => paymentModal.classList.add('hidden'));
-        // Cerrar modal al hacer clic fuera
-        paymentModal.addEventListener('click', (e) => {
-            if (e.target === paymentModal) {
-                paymentModal.classList.add('hidden');
-            }
-        });
+    // --- MANEJO DE MODALES ---
+    function setupModal(modalId, openBtnId, closeBtnId) {
+        const modal = document.getElementById(modalId);
+        const openBtn = document.getElementById(openBtnId);
+        const closeBtn = document.getElementById(closeBtnId);
+        if (modal && openBtn && closeBtn) {
+            openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+            closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+        }
     }
+    setupModal('payment-modal', 'open-payment-modal-btn', 'close-payment-modal-btn');
+    setupModal('half-pizza-modal', 'open-half-pizza-modal-btn', 'close-half-pizza-modal-btn');
 
-    // --- FUNCIONES AUXILIARES ---
+    // --- LÓGICA DE ACTUALIZACIÓN DE VISTA ---
+    const orderItemsList = document.getElementById('order-items-list');
+    const orderTotalEl = document.getElementById('order-total');
+
     function showJsMessage(message, type = 'danger') {
         const messageDiv = document.getElementById('add-item-message');
         if (!messageDiv) return;
-        
-        const typeClasses = {
-            success: 'bg-emerald-800 text-emerald-100 border-emerald-600',
-            danger: 'bg-red-800 text-red-100 border-red-600'
-        };
-        
+        const colors = type === 'success' 
+            ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300' 
+            : 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300';
+        messageDiv.className = `p-3 my-3 text-sm rounded-md ${colors}`;
         messageDiv.textContent = message;
-        messageDiv.className = `p-3 my-3 text-sm rounded-md border ${typeClasses[type] || typeClasses['danger']}`;
-        
-        setTimeout(() => {
-            messageDiv.textContent = '';
-            messageDiv.className = 'mt-4 text-sm';
-        }, 4000);
+        setTimeout(() => { messageDiv.textContent = ''; messageDiv.className = 'mt-4 text-sm'; }, 4000);
     }
 
-    function updateOrderView(itemData, newTotal) {
-        const list = document.getElementById('order-items-list');
-        const totalEl = document.getElementById('order-total');
+    function addItemToDOM(item) {
         const noItemsMsg = document.getElementById('no-items-message');
-
         if (noItemsMsg) noItemsMsg.remove();
-
-        let row = document.getElementById(`item-row-${itemData.id}`);
-        if (row) { // Actualizar ítem existente
-            row.querySelector('.text-sm').textContent = `${itemData.quantity} x $${itemData.unit_price.toFixed(2)}`;
-            row.querySelector('.text-right .font-semibold').textContent = `$${itemData.subtotal.toFixed(2)}`;
-        } else { // Añadir nuevo ítem
-            row = document.createElement('div');
-            row.id = `item-row-${itemData.id}`;
-            row.className = 'py-3 flex justify-between items-center';
-            row.innerHTML = `
-                <div>
-                    <p class="font-medium text-slate-100">${itemData.name}</p>
-                    <p class="text-sm text-slate-400">${itemData.quantity} x $${itemData.unit_price.toFixed(2)}</p>
-                </div>
-                <div class="text-right">
-                    <p class="font-semibold text-slate-100">$${itemData.subtotal.toFixed(2)}</p>
-                    <button onclick="removeItem(${itemData.id}, '${itemData.name.replace(/'/g, "\\'")}', ${itemData.product_id})" class="text-xs text-red-400 hover:text-red-300 transition-colors">Quitar</button>
-                </div>`;
-            list.appendChild(row);
-        }
-        totalEl.textContent = `$${newTotal.toFixed(2)}`;
-
-        // Habilitar/deshabilitar botón de cobro
-        if (openPaymentModalBtn) {
-            openPaymentModalBtn.disabled = newTotal <= 0;
-            openPaymentModalBtn.classList.toggle('opacity-50', newTotal <= 0);
-            openPaymentModalBtn.classList.toggle('cursor-not-allowed', newTotal <= 0);
-        }
-    }
-    
-    function updateProductStockInSelect(productId, newStock) {
-        const productOption = document.querySelector(`#product_id option[value="${productId}"]`);
-        if (productOption) {
-            const originalText = productOption.textContent.split(' - (Stock:')[0];
-            productOption.textContent = `${originalText} - (Stock: ${newStock})`;
-            productOption.dataset.stock = newStock;
-        }
-    }
-
-    // --- LÓGICA DE MANEJO DE ÍTEMS ---
-    window.removeItem = function(itemId, itemName, productId) {
-        if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
         
-        fetch(`/mozo/order_item/${itemId}/remove`, {
-            method: 'POST',
-            headers: { 'X-CSRFToken': csrfToken }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                const row = document.getElementById(`item-row-${itemId}`);
-                if (row) row.remove();
-                
-                document.getElementById('order-total').textContent = `$${data.order_total.toFixed(2)}`;
-                updateProductStockInSelect(productId, data.product_stock);
-
-                const list = document.getElementById('order-items-list');
-                if (!list.querySelector('div[id^="item-row-"]')) {
-                    list.innerHTML = '<p id="no-items-message" class="text-slate-500 py-4 text-center">No hay ítems en este pedido.</p>';
-                }
-                if (openPaymentModalBtn) {
-                    openPaymentModalBtn.disabled = data.order_total <= 0;
-                    openPaymentModalBtn.classList.toggle('opacity-50', data.order_total <= 0);
-                    openPaymentModalBtn.classList.toggle('cursor-not-allowed', data.order_total <= 0);
-                }
-            } else {
-                showJsMessage(data.message, 'danger');
-            }
-        });
+        let existingRow = document.getElementById(`item-row-${item.id}`);
+        if(existingRow) { // Actualizar cantidad si el item ya existe
+             existingRow.querySelector('.text-sm').textContent = `${item.quantity} x $${item.unit_price.toFixed(2)}`;
+             existingRow.querySelector('.font-semibold').textContent = `$${item.subtotal.toFixed(2)}`;
+        } else { // Crear nueva fila
+            const itemHTML = `
+                <div id="item-row-${item.id}" class="py-3 flex justify-between items-center">
+                    <div>
+                        <p class="font-medium text-gray-800 dark:text-slate-100">${item.name}</p>
+                        <p class="text-sm text-gray-500 dark:text-slate-400">${item.quantity} x $${item.unit_price.toFixed(2)}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold text-gray-800 dark:text-slate-100">$${item.subtotal.toFixed(2)}</p>
+                        <button onclick="removeItem(${item.id}, '${item.name.replace(/'/g, "\\'")}', ${item.product_id})" class="text-xs text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors">Quitar</button>
+                    </div>
+                </div>`;
+            orderItemsList.insertAdjacentHTML('beforeend', itemHTML);
+        }
     }
-    
+
+    function updateOrderTotal(newTotal) {
+        orderTotalEl.textContent = `$${newTotal.toFixed(2)}`;
+        const payBtn = document.getElementById('open-payment-modal-btn');
+        if(payBtn) {
+            payBtn.disabled = newTotal <= 0;
+            payBtn.classList.toggle('opacity-50', newTotal <= 0);
+            payBtn.classList.toggle('cursor-not-allowed', newTotal <= 0);
+        }
+    }
+
+    // --- MANEJO DE FORMULARIOS ---
+    const addItemForm = document.getElementById('add-item-form');
     if (addItemForm) {
         addItemForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
-            const fetchUrl = `/mozo/order/${orderId}/add_item`;
+            formData.append('csrf_token', csrfToken);
             
-            fetch(fetchUrl, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-CSRFToken': csrfToken }
-            })
+            fetch(`/mozo/order/${orderId}/add_item`, { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    updateOrderView(data.item, data.order_total);
+                    addItemToDOM(data.item);
+                    updateOrderTotal(data.order_total);
                     showJsMessage(data.message, 'success');
-                    updateProductStockInSelect(formData.get('product_id'), data.product_stock);
                     this.reset();
-                    document.getElementById('quantity').value = 1;
                 } else {
                     showJsMessage(data.message, 'danger');
                 }
             });
+        });
+    }
+
+    const halfPizzaForm = document.getElementById('half-pizza-form');
+    if (halfPizzaForm) {
+        halfPizzaForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            formData.append('csrf_token', csrfToken);
+            
+            fetch(`/mozo/order/${orderId}/add_half_pizza`, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    addItemToDOM(data.item);
+                    updateOrderTotal(data.order_total);
+                    document.getElementById('half-pizza-modal').classList.add('hidden');
+                    this.reset();
+                } else {
+                    alert(data.message); // Usar alert para errores en modal
+                }
+            });
+        });
+    }
+    
+    window.removeItem = function(itemId, itemName, productId) {
+        if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
+        const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
+        
+        fetch(`/mozo/order_item/${itemId}/remove`, { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const itemRow = document.getElementById(`item-row-${itemId}`);
+                if (itemRow) itemRow.remove();
+                updateOrderTotal(data.order_total);
+                if (!orderItemsList.children.length) {
+                     orderItemsList.innerHTML = '<p id="no-items-message" class="text-gray-400 dark:text-slate-500 py-4 text-center">No hay ítems en este pedido.</p>';
+                }
+            } else {
+                showJsMessage(data.message, 'danger');
+            }
         });
     }
 });

@@ -6,7 +6,6 @@ from .utils import mozo_required
 from sqlalchemy.orm import selectinload
 from collections import OrderedDict
 from datetime import datetime
-from flask_wtf.csrf import generate_csrf
 
 mozo_bp = Blueprint('mozo', __name__)
 
@@ -14,8 +13,8 @@ def get_products_by_category():
     products_query = Product.query.filter(Product.stock > 0).order_by(Product.type, Product.name).all()
     products_by_cat = OrderedDict()
     preferred_categories = [
-        "Sandwiches", "Hamburguesas", "Pizzas", "Milanesas al Plato", "Tostados & Especiales", 
-        "Papas Fritas", "Agregados", "Bebidas con Alcohol", "Bebidas sin Alcohol", "Postre", "Otro"
+        "Sandwiches", "Hamburguesas", "Pizzas", "Napolitanas", "Tostados", 
+        "Papas", "Agregados", "Bebidas c/Alcohol", "Bebidas s/Alcohol", "Postre", "Otro"
     ]
     for cat_name in preferred_categories:
         products_by_cat[cat_name] = []
@@ -23,6 +22,7 @@ def get_products_by_category():
         if product.type not in products_by_cat:
             products_by_cat[product.type] = []
         products_by_cat[product.type].append(product)
+    
     final_products_by_cat = OrderedDict()
     for cat_name, prods_in_cat in products_by_cat.items():
         if prods_in_cat:
@@ -37,14 +37,10 @@ def tables_view():
     for table in tables_query:
         active_order = Order.query.filter_by(table_id=table.id, status='Activo').first()
         total_pedido_activo = active_order.total_amount if active_order else 0.0
-        table_info = {
-            'id': table.id,
-            'number': table.number,
-            'capacity': table.capacity,
-            'status': table.status,
-            'total_pedido_activo': total_pedido_activo
-        }
-        tables_data.append(table_info)
+        tables_data.append({
+            'id': table.id, 'number': table.number, 'capacity': table.capacity,
+            'status': table.status, 'total_pedido_activo': total_pedido_activo
+        })
     return render_template('mozo/tables.html', tables_data=tables_data, title="Mesas del Restaurante")
 
 @mozo_bp.route('/table/<int:table_id>')
@@ -53,13 +49,15 @@ def table_detail_view(table_id):
     table_instance = Table.query.get_or_404(table_id)
     current_order = Order.query.filter_by(table_id=table_instance.id, status='Activo').first()
     products_by_category = get_products_by_category()
+    pizzas = Product.query.filter_by(type='Pizzas').order_by(Product.name).all()
     
     payment_methods = ['Efectivo', 'Tarjeta', 'Transferencia']
 
     return render_template('mozo/table_detail.html', 
                            table=table_instance, 
                            current_order=current_order, 
-                           products_by_category=products_by_category,
+                           products_by_category=products_by_category, 
+                           pizzas=pizzas,
                            payment_methods=payment_methods,
                            title=f"Mesa {table_instance.number}")
 
@@ -84,7 +82,7 @@ def add_item_to_order(order_id):
     product_id = request.form.get('product_id', type=int)
     quantity = request.form.get('quantity', type=int, default=1)
     
-    if product_id is None or quantity <= 0:
+    if not product_id or quantity <= 0:
         return jsonify({'success': False, 'message': 'Seleccione un producto y una cantidad válida.'}), 400
 
     product = Product.query.get_or_404(product_id)
@@ -92,7 +90,7 @@ def add_item_to_order(order_id):
     if product.stock < quantity:
         return jsonify({'success': False, 'message': f'Stock insuficiente para {product.name}. Stock actual: {product.stock}.'}), 400
 
-    order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id).first()
+    order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
     if order_item:
         order_item.quantity += quantity
     else:
@@ -109,9 +107,55 @@ def add_item_to_order(order_id):
         'success': True, 'message': f'{product.name} añadido correctamente.', 'order_total': order.total_amount,
         'item': {
             'id': order_item.id, 'name': product.name, 'quantity': order_item.quantity,
-            'unit_price': order_item.unit_price, 'subtotal': order_item.subtotal
+            'unit_price': order_item.unit_price, 'subtotal': order_item.subtotal,
+            'product_id': product.id
         },
         'product_stock': product.stock
+    })
+
+@mozo_bp.route('/order/<int:order_id>/add_half_pizza', methods=['POST'])
+@mozo_required
+def add_half_pizza(order_id):
+    order = Order.query.get_or_404(order_id)
+    pizza1_id = request.form.get('pizza1_id', type=int)
+    pizza2_id = request.form.get('pizza2_id', type=int)
+    
+    if not pizza1_id or not pizza2_id:
+        return jsonify({'success': False, 'message': 'Debes seleccionar dos sabores de pizza.'}), 400
+
+    pizza1 = Product.query.get_or_404(pizza1_id)
+    pizza2 = Product.query.get_or_404(pizza2_id)
+    
+    surcharge = 500.0
+    final_price = (pizza1.price / 2) + (pizza2.price / 2) + surcharge
+    
+    display_name = f"Mitad: {pizza1.name} / Mitad: {pizza2.name}"
+    
+    # Usamos el ID del primer producto como referencia, pero con los datos personalizados
+    order_item = OrderItem(
+        order_id=order.id,
+        product_id=pizza1.id, 
+        quantity=1,
+        unit_price=final_price,
+        display_name=display_name
+    )
+    
+    db.session.add(order_item)
+    order.calculate_total()
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Pizza combinada añadida con éxito.',
+        'order_total': order.total_amount,
+        'item': {
+            'id': order_item.id,
+            'name': order_item.display_name,
+            'quantity': order_item.quantity,
+            'unit_price': order_item.unit_price,
+            'subtotal': order_item.subtotal,
+            'product_id': order_item.product_id
+        }
     })
 
 @mozo_bp.route('/order_item/<int:item_id>/remove', methods=['POST'])
@@ -124,7 +168,7 @@ def remove_item_from_order(item_id):
     if order.status not in ['Activo', 'Pendiente']:
         return jsonify({'success': False, 'message': 'No se pueden quitar ítems de un pedido que no esté activo o pendiente.'}), 400
 
-    if product:
+    if product and not order_item.display_name:
         product.stock += order_item.quantity
     
     db.session.delete(order_item)
@@ -157,7 +201,6 @@ def mark_order_paid(order_id):
     
     return redirect(url_for('mozo.tables_view'))
 
-
 @mozo_bp.route('/table/<int:table_id>/liberate', methods=['POST'])
 @mozo_required
 def liberate_table(table_id):
@@ -184,7 +227,7 @@ def cancel_order(order_id):
 
     if order.status in ['Activo', 'Pendiente']:
         for item in order.items:
-            if item.product:
+            if item.product and not item.display_name:
                 item.product.stock += item.quantity
         order.status = 'Cancelado'
         order.updated_at = datetime.utcnow()
@@ -197,8 +240,6 @@ def cancel_order(order_id):
 
     redirect_url = url_for('mozo.takeaway_orders_view') if order_type == 'Para Llevar' else url_for('mozo.tables_view')
     return redirect(redirect_url)
-
-# --- RUTAS PARA LLEVAR ---
 
 @mozo_bp.route('/takeaway')
 @mozo_required
@@ -213,6 +254,7 @@ def new_takeaway_order():
         customer_name = request.form.get('customer_name', '').strip()
         if not customer_name:
             flash('El nombre del cliente es obligatorio para crear un pedido.', 'danger')
+            return redirect(url_for('mozo.new_takeaway_order'))
         else:
             new_order = Order(type='Para Llevar', customer_name=customer_name, status='Pendiente')
             db.session.add(new_order)
@@ -226,6 +268,8 @@ def new_takeaway_order():
 def takeaway_order_detail(order_id):
     order = Order.query.filter_by(id=order_id, type='Para Llevar').first_or_404()
     payment_methods = ['Efectivo', 'Tarjeta', 'Transferencia']
+    products_by_category = get_products_by_category()
+    pizzas = Product.query.filter_by(type='Pizzas').order_by(Product.name).all()
 
     if request.method == 'POST':
         if order.status == 'Pendiente':
@@ -239,11 +283,11 @@ def takeaway_order_detail(order_id):
         else:
             flash('No se puede editar un pedido que no esté en estado "Pendiente".', 'warning')
         return redirect(url_for('mozo.takeaway_order_detail', order_id=order.id))
-
-    products_by_category = get_products_by_category()
+    
     return render_template('mozo/takeaway_form.html', 
                            order=order, 
                            products_by_category=products_by_category, 
+                           pizzas=pizzas,
                            payment_methods=payment_methods,
                            action="Editar", 
                            title=f"Pedido Llevar #{order.id}")
@@ -275,9 +319,8 @@ def mark_takeaway_paid(order_id):
 def delete_takeaway_order(order_id):
     order = Order.query.filter_by(id=order_id, type='Para Llevar').first_or_404()
     if order.status not in ['Pagado', 'Cancelado', 'Venta Anulada']:
-        flash('Solo se pueden eliminar pedidos que ya han sido procesados (pagados o cancelados).', 'warning')
+        flash('Solo se pueden eliminar pedidos que ya han sido procesados.', 'warning')
     else:
-        # Los items se borran en cascada por la configuración en el modelo
         db.session.delete(order)
         db.session.commit()
         flash(f'Pedido #{order.id} eliminado del historial visible.', 'success')

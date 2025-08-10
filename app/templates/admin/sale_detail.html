@@ -1,79 +1,11 @@
 {% extends "layout.html" %}
-
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-slate-100">Detalle de Venta - Pedido #{{ sale_order.id }}</h1>
-    <a href="{{ url_for('admin.sales_log', page=return_page, date=return_date_filter if return_date_filter else None) }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-700 hover:bg-slate-600 transition-colors">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Detalle de Venta - Pedido #{{ sale_order.id }}</h1>
+    <a href="{{ url_for('admin.sales_log', page=return_page, date=return_date_filter if return_date_filter else None) }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-800 dark:text-slate-100 transition-colors">
         <i class="fa-solid fa-arrow-left mr-2"></i>Volver al Registro
     </a>
 </div>
-
-<div class="bg-slate-800 p-6 rounded-lg shadow-xl">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mb-6">
-        <div>
-            <h2 class="text-xl font-semibold text-amber-500 mb-3">Información del Pedido</h2>
-            <div class="space-y-2 text-sm">
-                <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">ID Pedido:</strong> #{{ sale_order.id }}</p>
-                <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">Tipo:</strong> {{ sale_order.type }}</p>
-                {% if sale_order.type == 'Mesa' and sale_order.table_assigned %}
-                <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">Mesa:</strong> #{{ sale_order.table_assigned.number }}</p>
-                {% elif sale_order.type == 'Para Llevar' %}
-                <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">Cliente:</strong> {{ sale_order.customer_name or 'No especificado' }}</p>
-                {% endif %}
-            </div>
-        </div>
-        <div>
-            <h2 class="text-xl font-semibold text-amber-500 mb-3">Detalles de la Transacción</h2>
-            <div class="space-y-2 text-sm">
-                 <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">Fecha de Pago:</strong> {{ sale_order.updated_at.strftime('%d/%m/%Y %H:%M') }}</p>
-                <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">Método de Pago:</strong> 
-                    <span class="font-semibold text-emerald-400">{{ sale_order.payment_method or 'No registrado' }}</span>
-                </p>
-                <p class="text-slate-300"><strong class="font-medium text-slate-100 w-28 inline-block">Estado:</strong> 
-                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
-                        {% if sale_order.status == 'Pagado' %}bg-emerald-500/20 text-emerald-300
-                        {% elif sale_order.status == 'Venta Anulada' %}bg-red-500/20 text-red-300
-                        {% else %}bg-slate-500/20 text-slate-300{% endif %}">
-                        {{ sale_order.status }}
-                    </span>
-                </p>
-            </div>
-        </div>
+<div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700">
     </div>
-
-    <h2 class="text-xl font-semibold text-amber-500 mb-3 mt-8 border-t border-slate-700 pt-6">Ítems del Pedido</h2>
-    {% if sale_order.items %}
-    <div class="overflow-x-auto rounded-lg shadow"> 
-        <table class="min-w-full divide-y divide-slate-700">
-            <thead class="bg-slate-700/50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Producto</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-slate-300 uppercase tracking-wider">Cantidad</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-slate-300 uppercase tracking-wider">Precio Unit.</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-300 uppercase tracking-wider">Subtotal</th>
-                </tr>
-            </thead>
-            <tbody class="bg-slate-800 divide-y divide-slate-700">
-                {% for item in sale_order.items %}
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-200">{{ item.product.name if item.product else 'Producto no disponible' }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-300 text-right">{{ item.quantity }}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-300 text-right">${{ "%.2f"|format(item.unit_price) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-100 text-right font-medium">${{ "%.2f"|format(item.subtotal) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot class="bg-slate-700/50">
-                <tr>
-                    <td colspan="3" class="px-6 py-3 text-right text-sm font-bold text-slate-100 uppercase">Total del Pedido:</td>
-                    <td class="px-6 py-3 text-right text-base font-bold text-amber-500">${{ "%.2f"|format(sale_order.total_amount) }}</td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {% else %}
-    <p class="text-slate-500 py-4 text-center">Este pedido no tiene ítems registrados.</p>
-    {% endif %}
-
-</div>
 {% endblock %}

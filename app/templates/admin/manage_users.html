@@ -1,37 +1,30 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-slate-100">Gestionar Usuarios</h1>
-    <a href="{{ url_for('admin.add_user') }}" class="px-4 py-2 rounded-lg font-semibold bg-amber-600 hover:bg-amber-700 transition-colors text-white">
-        <i class="fa-solid fa-plus mr-2"></i>Añadir Usuario
-    </a>
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Gestionar Usuarios</h1>
+    <a href="{{ url_for('admin.add_user') }}" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"><i class="fa-solid fa-plus mr-2"></i>Añadir Usuario</a>
 </div>
-
-<div class="bg-slate-800 shadow-lg rounded-lg overflow-x-auto">
-    <table class="min-w-full divide-y divide-slate-700">
-        <thead class="bg-slate-700/50">
+<div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg overflow-x-auto border border-gray-200 dark:border-slate-700">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+        <thead class="bg-gray-50 dark:bg-slate-700/50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">ID</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Usuario</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Rol</th>
-                <th class="px-6 py-3 text-center text-xs font-medium text-slate-300 uppercase tracking-wider">Acciones</th>
+                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">ID</th>
+                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Usuario</th>
+                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Rol</th>
+                <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Acciones</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-slate-700">
+        <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
             {% for user in pagination.items %}
-            <tr class="hover:bg-slate-700/50">
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{{ user.id }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{{ user.username }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{{ user.role.capitalize() }}</td>
+            <tr class="hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-slate-400">{{ user.id }}</td>
+                <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100">{{ user.username }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-slate-300">{{ user.role.capitalize() }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center space-x-4">
-                    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="text-amber-500 hover:text-amber-400 transition-colors">Editar</a>
-                    
+                    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="font-semibold text-blue-600 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">Editar</a>
                     <form action="{{ url_for('admin.delete_user', user_id=user.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Seguro que quieres eliminar al usuario {{ user.username }}?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="text-red-500 hover:text-red-400 transition-colors disabled:text-slate-600 disabled:cursor-not-allowed" 
-                                {% if current_user.id == user.id %}disabled title="No puedes eliminar tu propia cuenta"{% endif %}>
-                            Eliminar
-                        </button>
+                        <button type="submit" class="font-semibold text-red-600 dark:text-red-500 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:text-gray-300 dark:disabled:text-slate-600 disabled:cursor-not-allowed" {% if current_user.id == user.id %}disabled title="No puedes eliminar tu propia cuenta"{% endif %}>Eliminar</button>
                     </form>
                 </td>
             </tr>
@@ -39,24 +32,4 @@
         </tbody>
     </table>
 </div>
-
-{% if pagination and pagination.pages > 1 %}
-<div class="mt-6 flex justify-center">
-    <nav class="flex rounded-md shadow-sm" aria-label="Pagination">
-        <a href="{{ url_for('admin.manage_users', page=pagination.prev_num if pagination.has_prev else '#') }}" 
-           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-slate-700 bg-slate-800 text-sm font-medium text-slate-400 hover:bg-slate-700
-                  {% if not pagination.has_prev %}pointer-events-none text-slate-600{% endif %}">
-            Anterior
-        </a>
-        <span class="relative inline-flex items-center px-4 py-2 border-t border-b border-slate-700 bg-slate-800 text-sm font-medium text-slate-300">
-            Página {{ pagination.page }} de {{ pagination.pages }}
-        </span>
-        <a href="{{ url_for('admin.manage_users', page=pagination.next_num if pagination.has_next else '#') }}" 
-           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-slate-700 bg-slate-800 text-sm font-medium text-slate-400 hover:bg-slate-700
-                  {% if not pagination.has_next %}pointer-events-none text-slate-600{% endif %}">
-            Siguiente
-        </a>
-    </nav>
-</div>
-{% endif %}
 {% endblock %}

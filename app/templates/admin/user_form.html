@@ -1,45 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="max-w-lg mx-auto">
-    <h1 class="text-3xl font-bold text-slate-100 mb-6">{{ action }} Usuario</h1>
-    <div class="bg-slate-800 p-8 rounded-lg shadow-xl">
-        <form method="POST" action="{{ url_for(request.endpoint, user_id=user.id) if user else url_for(request.endpoint) }}" class="space-y-6">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
-            <div>
-                <label for="username" class="block text-sm font-medium text-slate-300">Nombre de Usuario</label>
-                <input type="text" name="username" id="username" value="{{ user.username or '' }}" required
-                       class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-100 rounded-md focus:ring-2 focus:ring-amber-500 transition"
-                       {% if action == 'Editar' %}readonly{% endif %}>
-                 {% if action == 'Editar' %}
-                <p class="text-xs text-slate-500 mt-1">El nombre de usuario no se puede cambiar.</p>
-                {% endif %}
-            </div>
-
-            <div>
-                <label for="password" class="block text-sm font-medium text-slate-300">Contraseña</label>
-                <input type="password" name="password" id="password"
-                       class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-100 rounded-md focus:ring-2 focus:ring-amber-500 transition"
-                       {% if action == 'Añadir' %}required{% endif %}>
-                {% if action == 'Editar' %}
-                <p class="text-xs text-slate-500 mt-1">Dejar en blanco para no cambiar la contraseña.</p>
-                {% endif %}
-            </div>
-
-            <div>
-                <label for="role" class="block text-sm font-medium text-slate-300">Rol</label>
-                <select name="role" id="role" required 
-                        class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-100 rounded-md focus:ring-2 focus:ring-amber-500 transition">
-                    <option value="mozo" {% if user and user.role == 'mozo' %}selected{% endif %}>Mozo</option>
-                    <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>Admin</option>
-                </select>
-            </div>
-            
-            <div class="flex justify-end space-x-4 pt-4">
-                <a href="{{ url_for('admin.manage_users') }}" class="px-4 py-2 rounded-lg font-semibold bg-slate-600 hover:bg-slate-500 transition-colors text-white">Cancelar</a>
-                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-amber-600 hover:bg-amber-700 transition-colors text-white">Guardar</button>
-            </div>
-        </form>
-    </div>
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100 mb-6">{{ action }} Usuario</h1>
+    <div class="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700">
+        </div>
 </div>
 {% endblock %}

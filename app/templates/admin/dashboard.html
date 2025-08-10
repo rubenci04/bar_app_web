@@ -1,71 +1,69 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-3xl font-bold text-slate-100">Dashboard</h1>
-    <p class="text-slate-400 mt-1">Resumen general del estado del negocio.</p>
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
+    <p class="text-gray-500 dark:text-slate-400 mt-1">Resumen general del estado del negocio.</p>
 </div>
-
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-slate-800 p-6 rounded-xl shadow-lg flex items-center space-x-4">
-        <div class="bg-emerald-500/10 p-3 rounded-lg">
-            <i class="fa-solid fa-cash-register fa-2x text-emerald-500"></i>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 flex items-center space-x-4">
+        <div class="bg-green-500/10 p-3 rounded-lg">
+            <i class="fa-solid fa-cash-register fa-2x text-green-500"></i>
         </div>
         <div>
-            <p class="text-sm text-slate-400">Ventas Hoy (Total)</p>
-            <p class="text-2xl font-bold text-slate-100">${{ "%.2f"|format(total_sales_today) }}</p>
+            <p class="text-sm text-gray-500 dark:text-slate-400">Ventas Hoy (Total)</p>
+            <p class="text-2xl font-bold text-gray-800 dark:text-slate-100">${{ "%.2f"|format(total_sales_today) }}</p>
         </div>
     </div>
-    <div class="bg-slate-800 p-6 rounded-xl shadow-lg flex items-center space-x-4">
-        <div class="bg-amber-500/10 p-3 rounded-lg">
-            <i class="fa-solid fa-file-invoice fa-2x text-amber-500"></i>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 flex items-center space-x-4">
+        <div class="bg-yellow-500/10 p-3 rounded-lg">
+            <i class="fa-solid fa-file-invoice fa-2x text-yellow-500"></i>
         </div>
         <div>
-            <p class="text-sm text-slate-400">Pedidos Activos</p>
-            <p class="text-2xl font-bold text-slate-100">{{ active_orders_count }}</p>
+            <p class="text-sm text-gray-500 dark:text-slate-400">Pedidos Activos</p>
+            <p class="text-2xl font-bold text-gray-800 dark:text-slate-100">{{ active_orders_count }}</p>
         </div>
     </div>
-    <div class="bg-slate-800 p-6 rounded-xl shadow-lg flex items-center space-x-4">
-        <div class="bg-sky-500/10 p-3 rounded-lg">
-            <i class="fa-solid fa-chair fa-2x text-sky-500"></i>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 flex items-center space-x-4">
+        <div class="bg-blue-500/10 p-3 rounded-lg">
+            <i class="fa-solid fa-chair fa-2x text-blue-500"></i>
         </div>
         <div>
-            <p class="text-sm text-slate-400">Mesas Ocupadas</p>
-            <p class="text-2xl font-bold text-slate-100">{{ tables_occupied_count }}</p>
+            <p class="text-sm text-gray-500 dark:text-slate-400">Mesas Ocupadas</p>
+            <p class="text-2xl font-bold text-gray-800 dark:text-slate-100">{{ tables_occupied_count }}</p>
         </div>
     </div>
 </div>
-
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-1 bg-slate-800 p-6 rounded-xl shadow-lg">
-        <h2 class="text-xl font-semibold text-slate-100 mb-4">Desglose de Ventas (Hoy)</h2>
+    <div class="lg:col-span-1 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-slate-100 mb-4">Desglose de Ventas (Hoy)</h2>
         <div class="space-y-4">
             <div class="flex justify-between items-center">
-                <p class="text-slate-300">Ventas en Mesas:</p>
-                <p class="font-semibold text-emerald-400">${{ "%.2f"|format(sales_today_table) }}</p>
+                <p class="text-gray-600 dark:text-slate-300">Ventas en Mesas:</p>
+                <p class="font-semibold text-green-600 dark:text-green-500">${{ "%.2f"|format(sales_today_table) }}</p>
             </div>
             <div class="flex justify-between items-center">
-                <p class="text-slate-300">Ventas para Llevar:</p>
-                <p class="font-semibold text-emerald-400">${{ "%.2f"|format(sales_today_takeaway) }}</p>
+                <p class="text-gray-600 dark:text-slate-300">Ventas para Llevar:</p>
+                <p class="font-semibold text-green-600 dark:text-green-500">${{ "%.2f"|format(sales_today_takeaway) }}</p>
             </div>
-            <div class="border-t border-slate-700 mt-4 pt-4 flex justify-between items-center">
-                <p class="font-bold text-slate-100">Total:</p>
-                <p class="font-bold text-xl text-emerald-400">${{ "%.2f"|format(total_sales_today) }}</p>
+            <div class="border-t border-gray-200 dark:border-slate-700 mt-4 pt-4 flex justify-between items-center">
+                <p class="font-bold text-gray-800 dark:text-slate-100">Total:</p>
+                <p class="font-bold text-xl text-green-600 dark:text-green-500">${{ "%.2f"|format(total_sales_today) }}</p>
             </div>
         </div>
     </div>
-    <div class="lg:col-span-2 bg-slate-800 p-6 rounded-xl shadow-lg">
-        <h2 class="text-xl font-semibold text-slate-100 mb-4">Top 5 Productos Más Vendidos</h2>
+    <div class="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-slate-100 mb-4">Top 5 Productos Más Vendidos</h2>
         {% if top_products %}
         <ul class="space-y-3">
             {% for product in top_products %}
-            <li class="flex justify-between items-center text-slate-300">
+            <li class="flex justify-between items-center text-gray-600 dark:text-slate-300">
                 <span>{{ loop.index }}. {{ product.name }}</span>
-                <span class="font-bold text-amber-500">{{ product.total_quantity }} <small>unidades</small></span>
+                <span class="font-bold text-blue-600 dark:text-blue-500">{{ product.total_quantity }} <small>unidades</small></span>
             </li>
             {% endfor %}
         </ul>
         {% else %}
-        <p class="text-slate-500 text-center py-4">Aún no hay datos de ventas para mostrar un ranking.</p>
+        <p class="text-gray-400 dark:text-slate-500 text-center py-4">Aún no hay datos de ventas para mostrar un ranking.</p>
         {% endif %}
     </div>
 </div>

@@ -1,0 +1,15 @@
+/* Archivo: app/static/css/style.css */
+
+/* Aplicamos una sombra más pronunciada a los elementos principales como paneles y formularios */
+.card-shadow {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.card-shadow-hover:hover {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Sombras sutiles para inputs y selects */
+.input-shadow {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}

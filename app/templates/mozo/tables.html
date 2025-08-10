@@ -1,39 +1,28 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-slate-100">Vista de Mesas</h1>
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Vista de Mesas</h1>
 </div>
-
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
     {% for table_info in tables_data %} 
     <a href="{{ url_for('mozo.table_detail_view', table_id=table_info.id) }}"
-       class="p-4 border rounded-lg shadow-md text-center transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl
-              {% if table_info.status == 'Vacía' %}
-              bg-slate-700 hover:bg-slate-600 border-sky-800
-              {% elif table_info.status == 'Ocupada' %}
-              bg-amber-800 hover:bg-amber-700 border-amber-700
-              {% elif table_info.status == 'Pendiente Pago' %}
-              bg-emerald-800 hover:bg-emerald-700 border-emerald-700
-              {% else %}
-              bg-gray-900 hover:bg-gray-800 border-gray-800
+       class="p-4 bg-white dark:bg-slate-800 border rounded-lg shadow-lg text-center transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl
+              {% if table_info.status == 'Vacía' %} border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500
+              {% elif table_info.status == 'Ocupada' %} border-yellow-400 dark:border-yellow-600 hover:border-yellow-500
               {% endif %}">
-        
-        <div class="text-2xl font-bold text-white">Mesa {{ table_info.number }}</div>
-        <div class="text-sm mt-1 text-slate-300">Capacidad: {{ table_info.capacity }}</div>
-        
+        <div class="text-2xl font-bold text-gray-800 dark:text-slate-100">Mesa {{ table_info.number }}</div>
+        <div class="text-sm mt-1 text-gray-500 dark:text-slate-400">Capacidad: {{ table_info.capacity }}</div>
         <div class="mt-2 text-sm font-semibold py-1 rounded-full
-              {% if table_info.status == 'Vacía' %} bg-sky-500/20 text-sky-300
-              {% elif table_info.status == 'Ocupada' %} bg-amber-500/20 text-amber-300
-              {% elif table_info.status == 'Pendiente Pago' %} bg-emerald-500/20 text-emerald-300
+              {% if table_info.status == 'Vacía' %} bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300
+              {% elif table_info.status == 'Ocupada' %} bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300
               {% endif %}">
             {{ table_info.status }}
         </div>
-        
         {% if table_info.status == 'Ocupada' %}
             {% if table_info.total_pedido_activo > 0 %}
-                <div class="text-sm mt-2 text-white font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
+                <div class="text-base mt-2 text-gray-800 dark:text-slate-100 font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
             {% else %}
-                 <div class="text-xs mt-2 text-slate-400 italic">(Vacio)</div>
+                 <div class="text-xs mt-2 text-gray-400 dark:text-slate-500 italic">(Vacio)</div>
             {% endif %}
         {% endif %}
     </a>
