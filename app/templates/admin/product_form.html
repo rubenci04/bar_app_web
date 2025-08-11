@@ -1,30 +1,38 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100 mb-6">{{ action }} Producto</h1>
-    <div class="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">{{ action }} Producto</h1>
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
         <form method="POST" action="{{ url_for(request.endpoint, product_id=product.id) if product else url_for(request.endpoint) }}" id="productForm" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div>
-                <label for="name" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Nombre del Producto</label>
+                <label for="name" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Nombre del Producto</label>
                 <input type="text" name="name" id="name" value="{{ product.name if product else (product_data.name if product_data else '') }}" required
-                       class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-gray-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: Milanesa Napolitana">
+                       class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: Milanesa Napolitana">
             </div>
+            
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Descripción / Ingredientes (Opcional)</label>
+                <textarea name="description" id="description" rows="3" 
+                          class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition" 
+                          placeholder="Ej: Lechuga, tomate, queso cheddar, panceta...">{{ product.description if product else (product_data.description if product_data else '') }}</textarea>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="price" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Precio ($)</label>
+                    <label for="price" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Precio ($)</label>
                     <input type="text" inputmode="decimal" name="price" id="price" value="{{ '%.2f'|format(product.price) if product else (product_data.price if product_data else '') }}" required
-                           class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-gray-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 5500.00">
+                           class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 5500.00">
                 </div>
-            <div>
-                <label for="stock" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Stock</label>
-                <input type="number" inputmode="numeric" name="stock" id="stock" min="0" value="{{ product.stock if product is defined else (product_data.stock if product_data is defined else '0') }}" class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-gray-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 50" required>
+                <div>
+                    <label for="stock" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Stock</label>
+                    <input type="number" inputmode="numeric" name="stock" id="stock" min="0" value="{{ product.stock if product is defined else (product_data.stock if product_data is defined else '0') }}" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 50">
+                </div>
             </div>
-            </div>
             <div>
-                <label for="type" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Categoría</label>
+                <label for="type" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Categoría</label>
                 <select name="type" id="type" required
-                        class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-gray-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 transition">
+                        class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition">
                     <option value="" disabled {% if not product %}selected{% endif %}>Selecciona una categoría...</option>
                     {% for category_option in categories %}
                         <option value="{{ category_option }}" {% if product and product.type == category_option %}selected{% endif %}>{{ category_option }}</option>
@@ -33,12 +41,12 @@
                 </select>
             </div>
             <div id="new_category_div" class="hidden">
-                <label for="new_category" class="block text-sm font-medium text-gray-600 dark:text-slate-300">Nombre de la Nueva Categoría</label>
+                <label for="new_category" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Nombre de la Nueva Categoría</label>
                 <input type="text" name="new_category" id="new_category"
-                       class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-gray-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: Tragos de Autor">
+                       class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: Tragos de Autor">
             </div>
             <div class="flex justify-end space-x-4 pt-4">
-                <a href="{{ url_for('admin.products') }}" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 text-gray-800 dark:text-white transition-colors">Cancelar</a>
+                <a href="{{ url_for('admin.products') }}" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white transition-colors">Cancelar</a>
                 <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">{{ action }} Producto</button>
             </div>
         </form>
@@ -46,6 +54,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const typeSelect = document.getElementById('type');

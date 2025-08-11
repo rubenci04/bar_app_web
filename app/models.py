@@ -25,6 +25,8 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     type = db.Column(db.String(50), nullable=False)
     stock = db.Column(db.Integer, default=0)
+    # --- CAMBIO REALIZADO AQUÍ ---
+    description = db.Column(db.String(300), nullable=True)
 
     def __repr__(self):
         return f'<Product {self.name}>'
@@ -66,14 +68,13 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     unit_price = db.Column(db.Float, nullable=False)
     subtotal = db.Column(db.Float, nullable=False)
-    display_name = db.Column(db.String(200), nullable=True) # <-- NUEVO CAMPO
+    display_name = db.Column(db.String(200), nullable=True) 
     
     order = db.relationship('Order', back_populates='items')
     product = db.relationship('Product')
 
     def __init__(self, **kwargs):
         super(OrderItem, self).__init__(**kwargs)
-        # Recalculate subtotal in case a custom price is passed
         self.calculate_subtotal()
 
     def calculate_subtotal(self):

@@ -1,0 +1,239 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Ventas y Reportes</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">Análisis de rendimiento y registro de ventas {{ subtitle }}.</p>
+</div>
+<div class="mb-6 flex flex-wrap gap-2">
+    <a href="{{ url_for('admin.sales_and_reports', period='today') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'today' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Hoy</a>
+    <a href="{{ url_for('admin.sales_and_reports', period='week') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'week' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Esta Semana</a>
+    <a href="{{ url_for('admin.sales_and_reports', period='month') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'month' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Este Mes</a>
+    <a href="{{ url_for('admin.sales_and_reports', period='year') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'year' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Este Año</a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ingresos Totales</p>
+        <p class="text-3xl font-extrabold text-green-600 dark:text-green-500 mt-2">${{ "%.2f"|format(total_ingresos) }}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pedidos Cobrados</p>
+        <p class="text-3xl font-extrabold text-blue-600 dark:text-blue-500 mt-2">{{ total_pedidos }}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Promedio por Pedido</p>
+        <p class="text-3xl font-extrabold text-yellow-500 dark:text-yellow-400 mt-2">${{ "%.2f"|format(promedio_por_pedido) }}</p>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 mb-8">
+    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Ranking de Productos Más Vendidos</h3>
+    {% if ranking_productos %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead class="border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                    <th class="text-left font-semibold text-gray-600 dark:text-gray-300 p-2">#</th>
+                    <th class="text-left font-semibold text-gray-600 dark:text-gray-300 p-2">Producto</th>
+                    <th class="text-right font-semibold text-gray-600 dark:text-gray-300 p-2">Unidades</th>
+                    <th class="text-right font-semibold text-gray-600 dark:text-gray-300 p-2">% del Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for producto in ranking_productos %}
+                <tr class="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                    <td class="p-2 text-gray-500 dark:text-gray-400">{{ loop.index }}</td>
+                    <td class="p-2 font-medium text-gray-800 dark:text-gray-100">{{ producto.name }}</td>
+                    <td class="p-2 text-right text-gray-600 dark:text-gray-300">{{ producto.quantity }}</td>
+                    <td class="p-2 text-right text-blue-600 dark:text-blue-500 font-semibold">{{ "%.2f"|format(producto.percentage) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-500 dark:text-gray-400 py-10">No hay datos de productos vendidos en este período.</p>
+    {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Ingresos por Día</h3>
+        {% if ventas_por_dia %}
+        <table class="w-full text-sm">
+            <thead class="border-b border-gray-200 dark:border-gray-700">
+                <tr><th class="text-left p-2 font-semibold text-gray-600 dark:text-gray-300">Fecha</th><th class="text-right p-2 font-semibold text-gray-600 dark:text-gray-300">Total Ingresos</th></tr>
+            </thead>
+            <tbody>
+            {% for venta in ventas_por_dia %}
+                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ venta.dia.strftime('%d/%m/%Y') }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(venta.total_diario) }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-10">No hay datos de ventas en este período.</p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Top 5 Categorías (por Ingresos)</h3>
+        {% if categorias_populares %}
+        <table class="w-full text-sm">
+            <thead class="border-b border-gray-200 dark:border-gray-700">
+                <tr><th class="text-left p-2 font-semibold text-gray-600 dark:text-gray-300">Categoría</th><th class="text-right p-2 font-semibold text-gray-600 dark:text-gray-300">Total Ingresos</th></tr>
+            </thead>
+            <tbody>
+            {% for cat in categorias_populares %}
+                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ cat.type }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(cat.total_revenue) }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-10">No hay datos de categorías en este período.</p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Resumen por Método de Pago</h3>
+        {% if payment_methods_summary %}
+        <table class="w-full text-sm">
+            <thead class="border-b border-gray-200 dark:border-gray-700">
+                <tr><th class="text-left p-2 font-semibold text-gray-600 dark:text-gray-300">Método</th><th class="text-center p-2 font-semibold text-gray-600 dark:text-gray-300">Usos</th><th class="text-right p-2 font-semibold text-gray-600 dark:text-gray-300">Total Recaudado</th></tr>
+            </thead>
+            <tbody>
+            {% for payment in payment_methods_summary %}
+                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ payment.payment_method }}</td><td class="text-center p-2 text-gray-600 dark:text-gray-300">{{ payment.count }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(payment.total) }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-10">No hay datos de pago en este período.</p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Ventas por Franja Horaria</h3>
+        {% if ventas_por_franja %}
+        <table class="w-full text-sm">
+            <thead class="border-b border-gray-200 dark:border-gray-700">
+                <tr><th class="text-left p-2 font-semibold text-gray-600 dark:text-gray-300">Franja Horaria</th><th class="text-right p-2 font-semibold text-gray-600 dark:text-gray-300">Total Ingresos</th></tr>
+            </thead>
+            <tbody>
+            {% for franja in ventas_por_franja %}
+                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ franja.franja_horaria }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(franja.total) }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-10">No hay datos de ventas en este período.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="bg-white dark:bg-gray-800 shadow-md rounded-lg border border-gray-200 dark:border-gray-700">
+    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Registro Detallado de Ventas</h3>
+        
+        <form method="GET" action="{{ url_for('admin.sales_and_reports') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mt-4 items-end">
+            <div class="md:col-span-1">
+                <label for="customer" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Cliente (Llevar)</label>
+                <input type="text" name="customer" id="customer" value="{{ search_customer_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition">
+            </div>
+            <div>
+                <label for="date" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Fecha Específica</label>
+                <input type="date" name="date" id="date" value="{{ search_date_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition">
+            </div>
+            <div>
+                <label for="min_amount" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Monto Mín.</label>
+                <input type="number" step="0.01" name="min_amount" id="min_amount" value="{{ search_min_amount_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 5000">
+            </div>
+            <div>
+                <label for="max_amount" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Monto Máx.</label>
+                <input type="number" step="0.01" name="max_amount" id="max_amount" value="{{ search_max_amount_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 15000">
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="submit" class="w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">Filtrar</button>
+                <a href="{{ url_for('admin.sales_and_reports') }}" class="w-full sm:w-auto text-center px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white transition-colors">Limpiar</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipo / Detalle</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Método Pago</th>
+                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
+                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
+                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% if pagination.items %}
+                    {% for sale_order in pagination.items %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="px-6 py-4">
+                            <a href="{{ url_for('admin.sale_detail_view', order_id=sale_order.id, page=pagination.page, **request.args) }}" class="text-blue-600 hover:text-blue-500 hover:underline">
+                                #{{ sale_order.id }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
+                            {{ sale_order.type }}
+                            <span class="text-gray-400 dark:text-gray-500">({% if sale_order.type == 'Mesa' %}Mesa {{ sale_order.table_assigned.number if sale_order.table_assigned else 'N/A' }}{% else %}{{ sale_order.customer_name }}{% endif %})</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ sale_order.updated_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ sale_order.payment_method or 'N/A' }}</td>
+                        <td class="px-6 py-4 font-semibold text-right text-gray-800 dark:text-gray-100">${{ "%.2f"|format(sale_order.total_amount) }}</td>
+                        <td class="px-6 py-4 text-center">
+                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full
+                                {% if sale_order.status == 'Pagado' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                                {% elif sale_order.status == 'Venta Anulada' %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300
+                                {% endif %}">
+                                {{ sale_order.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium text-center">
+                            {% if sale_order.status == 'Pagado' %}
+                            <form action="{{ url_for('admin.annul_sale', order_id=sale_order.id) }}" method="POST" onsubmit="return confirm('¿Seguro que quieres ANULAR esta venta (Pedido #{{sale_order.id}})? El stock será repuesto.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                {% for key, value in request.args.items() %}
+                                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                                {% endfor %}
+                                <button type="submit" class="font-semibold text-yellow-600 hover:text-yellow-500">Anular</button>
+                            </form>
+                            {% else %}
+                             <span class="text-xs text-gray-400 dark:text-gray-500 italic">(Anulada)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="7" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">No se encontraron ventas que coincidan con los filtros.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if pagination and pagination.pages > 1 %}
+<div class="mt-6 flex justify-center">
+    <nav class="flex rounded-md shadow-sm" aria-label="Pagination">
+        <a href="{{ url_for('admin.sales_and_reports', page=pagination.prev_num, **request.args) if pagination.has_prev else '#' }}"
+           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700
+                  {% if not pagination.has_prev %}pointer-events-none text-gray-400 dark:text-gray-600{% endif %}">
+            Anterior
+        </a>
+        <span class="relative inline-flex items-center px-4 py-2 border-t border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300">
+            Página {{ pagination.page }} de {{ pagination.pages }}
+        </span>
+        <a href="{{ url_for('admin.sales_and_reports', page=pagination.next_num, **request.args) if pagination.has_next else '#' }}"
+           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700
+                  {% if not pagination.has_next %}pointer-events-none text-gray-400 dark:text-gray-600{% endif %}">
+            Siguiente
+        </a>
+    </nav>
+</div>
+{% endif %}
+{% endblock %}

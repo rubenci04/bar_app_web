@@ -4,7 +4,6 @@ from .models import Product, Order, OrderItem, Table, User
 from . import db
 from .utils import admin_required
 from datetime import datetime, date, timedelta
-from collections import OrderedDict
 from sqlalchemy import func
 from flask_login import current_user
 
@@ -73,19 +72,20 @@ def add_product():
         price_str = request.form.get('price')
         product_type = request.form.get('type')
         stock_str = request.form.get('stock')
+        description = request.form.get('description', '').strip()
         new_category = request.form.get('new_category', '').strip()
 
         if product_type == 'Otro':
             if not new_category:
                 flash('Debe especificar el nombre de la nueva categoría.', 'danger')
-                # Pasamos los datos de vuelta para que el usuario no los pierda
-                return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product={'name': name, 'price': price_str, 'stock': stock_str})
+                product_data = {'name': name, 'price': price_str, 'stock': stock_str, 'description': description}
+                return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
             product_type = new_category
 
         try:
             price = float(price_str)
             stock = int(stock_str)
-            new_product = Product(name=name, price=price, type=product_type, stock=stock)
+            new_product = Product(name=name, price=price, type=product_type, stock=stock, description=description)
             db.session.add(new_product)
             db.session.commit()
             flash('Producto añadido con éxito.', 'success')
@@ -105,6 +105,7 @@ def edit_product(product_id):
         price_str = request.form.get('price')
         product_type = request.form.get('type')
         stock_str = request.form.get('stock')
+        description = request.form.get('description', '').strip()
         new_category = request.form.get('new_category', '').strip()
 
         if product_type == 'Otro':
@@ -119,6 +120,7 @@ def edit_product(product_id):
             product.name = name
             product.price = float(price_str)
             product.stock = int(stock_str)
+            product.description = description
             db.session.commit()
             flash('Producto actualizado con éxito.', 'success')
             return redirect(url_for('admin.products'))
@@ -141,53 +143,131 @@ def delete_product(product_id):
         flash(f'Error al eliminar el producto: {str(e)}', 'danger')
     return redirect(url_for('admin.products'))
 
-@admin_bp.route('/sales')
+@admin_bp.route('/sales-reports')
 @admin_required
-def sales_log():
+def sales_and_reports():
+    period = request.args.get('period', 'today')
     page = request.args.get('page', 1, type=int)
-    date_filter_str = request.args.get('date', '').strip()
     
-    query = Order.query.filter(Order.status.in_(['Pagado', 'Venta Anulada']))
+    latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
+    reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
+
+    if period == 'today':
+        start_date = datetime.combine(reference_date, datetime.min.time())
+        end_date = datetime.combine(reference_date, datetime.max.time())
+        subtitle = f"para Hoy ({reference_date.strftime('%d/%m/%Y')})"
+    elif period == 'week':
+        start_of_week = reference_date - timedelta(days=reference_date.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+        start_date = datetime.combine(start_of_week, datetime.min.time())
+        end_date = datetime.combine(end_of_week, datetime.max.time())
+        subtitle = "para Esta Semana"
+    elif period == 'month':
+        start_of_month = reference_date.replace(day=1)
+        next_month = start_of_month.replace(day=28) + timedelta(days=4)
+        last_day_of_month = next_month - timedelta(days=next_month.day)
+        start_date = datetime.combine(start_of_month, datetime.min.time())
+        end_date = datetime.combine(last_day_of_month, datetime.max.time())
+        subtitle = "para Este Mes"
+    else:  # 'year'
+        start_of_year = reference_date.replace(day=1, month=1)
+        end_of_year = reference_date.replace(day=31, month=12)
+        start_date = datetime.combine(start_of_year, datetime.min.time())
+        end_date = datetime.combine(end_of_year, datetime.max.time())
+        subtitle = "para Este Año"
+
+    base_paid_query = Order.query.filter(
+        Order.status == 'Pagado',
+        Order.updated_at >= start_date,
+        Order.updated_at <= end_date
+    )
     
-    date_filter = None
-    if date_filter_str:
-        try:
-            date_filter = datetime.strptime(date_filter_str, '%Y-%m-%d').date()
-            query = query.filter(db.func.date(Order.updated_at) == date_filter)
-        except ValueError:
-            flash('Formato de fecha inválido. Mostrando todos los resultados.', 'warning')
-            date_filter_str = ''
+    total_ingresos = base_paid_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
+    total_pedidos = base_paid_query.count()
+    promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
+    
+    ranking_productos = []
+    base_items_query = OrderItem.query.join(Order).filter(
+        Order.status == 'Pagado',
+        Order.updated_at >= start_date,
+        Order.updated_at <= end_date
+    )
+    total_items_vendidos = base_items_query.with_entities(func.sum(OrderItem.quantity)).scalar() or 0
+    if total_items_vendidos > 0:
+        productos_mas_vendidos = base_items_query.join(Product).with_entities(
+            Product.name, func.sum(OrderItem.quantity).label('total_quantity')
+        ).group_by(Product.name).order_by(func.sum(OrderItem.quantity).desc()).limit(10).all()
+        for producto in productos_mas_vendidos:
+            porcentaje = (producto.total_quantity / total_items_vendidos) * 100
+            ranking_productos.append({
+                'name': producto.name,
+                'quantity': producto.total_quantity,
+                'percentage': round(porcentaje, 2)
+            })
 
-    pagination = query.order_by(Order.updated_at.desc()).paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
+    ventas_por_dia_query = base_paid_query.with_entities(
+        func.date(Order.updated_at).label('dia'),
+        func.sum(Order.total_amount).label('total_diario')
+    ).group_by(func.date(Order.updated_at)).order_by(func.date(Order.updated_at).desc()).all()
+    
+    ventas_por_dia = []
+    for venta in ventas_por_dia_query:
+        dia_obj = datetime.strptime(venta.dia, '%Y-%m-%d').date() if isinstance(venta.dia, str) else venta.dia
+        ventas_por_dia.append({'dia': dia_obj, 'total_diario': venta.total_diario})
+    
+    categorias_populares = base_items_query.join(Product).with_entities(
+        Product.type,
+        func.sum(OrderItem.subtotal).label('total_revenue')
+    ).group_by(Product.type).order_by(func.sum(OrderItem.subtotal).desc()).limit(5).all()
 
-    base_sales_query = db.session.query(func.sum(Order.total_amount)).filter(Order.status == 'Pagado')
-    if date_filter:
-        base_sales_query = base_sales_query.filter(db.func.date(Order.updated_at) == date_filter)
+    payment_methods_summary = base_paid_query.with_entities(
+        Order.payment_method,
+        func.count(Order.id).label('count'),
+        func.sum(Order.total_amount).label('total')
+    ).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
+    
+    hour_case = db.case(
+        (func.strftime('%H', Order.updated_at).between('08', '11'), 'Mañana (08-12)'),
+        (func.strftime('%H', Order.updated_at).between('12', '15'), 'Mediodía (12-16)'),
+        (func.strftime('%H', Order.updated_at).between('16', '19'), 'Tarde (16-20)'),
+        (func.strftime('%H', Order.updated_at).between('20', '23'), 'Noche (20-00)'),
+        else_='Madrugada (00-08)'
+    ).label('franja_horaria')
+    ventas_por_franja = base_paid_query.with_entities(
+        hour_case,
+        func.sum(Order.total_amount).label('total')
+    ).group_by(hour_case).order_by(func.sum(Order.total_amount).desc()).all()
 
-    total_sales = base_sales_query.scalar() or 0.0
-    total_sales_table = base_sales_query.filter(Order.type == 'Mesa').scalar() or 0.0
-    total_sales_takeaway = base_sales_query.filter(Order.type == 'Para Llevar').scalar() or 0.0
+    log_query = Order.query.filter(Order.status.in_(['Pagado', 'Venta Anulada']))
+    pagination = log_query.order_by(Order.updated_at.desc()).paginate(page=page, per_page=15, error_out=False)
 
-    return render_template('admin/sales_log.html', 
-                           pagination=pagination, 
-                           title="Registro de Ventas", 
-                           date_filter=date_filter_str,
-                           total_sales=total_sales,
-                           total_sales_table=total_sales_table,
-                           total_sales_takeaway=total_sales_takeaway)
-
+    return render_template('admin/sales_and_reports.html', 
+        title="Ventas y Reportes",
+        subtitle=subtitle,
+        active_period=period,
+        total_ingresos=total_ingresos,
+        total_pedidos=total_pedidos,
+        promedio_por_pedido=promedio_por_pedido,
+        ranking_productos=ranking_productos,
+        ventas_por_dia=ventas_por_dia,
+        categorias_populares=categorias_populares,
+        payment_methods_summary=payment_methods_summary,
+        ventas_por_franja=ventas_por_franja,
+        pagination=pagination
+    )
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
 def sale_detail_view(order_id):
     order = Order.query.get_or_404(order_id)
     return_page = request.args.get('page', 1, type=int)
-    return_date_filter = request.args.get('date', '')
+    # Mantener los filtros al volver
+    return_args = {key: val for key, val in request.args.items() if key != 'order_id'}
     
     return render_template('admin/sale_detail.html', 
                            sale_order=order, 
                            title=f"Detalle de Venta #{order.id}",
                            return_page=return_page,
-                           return_date_filter=return_date_filter)
+                           return_args=return_args)
 
 @admin_bp.route('/annul_sale/<int:order_id>', methods=['POST'])
 @admin_required
@@ -197,7 +277,7 @@ def annul_sale(order_id):
         order.status = 'Venta Anulada'
         order.updated_at = datetime.utcnow()
         for item in order.items:
-            if item.product:
+            if item.product and not item.display_name:
                 item.product.stock += item.quantity
         db.session.commit()
         flash(f'Venta #{order.id} anulada con éxito. El stock ha sido repuesto.', 'success')
@@ -205,8 +285,10 @@ def annul_sale(order_id):
         flash('Solo se pueden anular ventas con estado "Pagado".', 'danger')
 
     return_page = request.form.get('page', 1, type=int)
-    return_date_filter = request.form.get('date', '')
-    return redirect(url_for('admin.sales_log', page=return_page, date=return_date_filter))
+    # Reconstruir los argumentos para mantener el estado del filtro
+    return_args = {key: val for key, val in request.form.items() if key not in ['order_id', 'csrf_token']}
+    return redirect(url_for('admin.sales_and_reports', page=return_page, **return_args))
+
 
 @admin_bp.route('/tables')
 @admin_required
@@ -269,11 +351,10 @@ def delete_table(table_id):
     if table.status != 'Vacía':
         flash('No se puede eliminar una mesa que está ocupada. Libérela primero.', 'danger')
     else:
-        # Desvincular pedidos históricos en lugar de impedir el borrado
         Order.query.filter_by(table_id=table.id).update({'table_id': None})
         db.session.delete(table)
         db.session.commit()
-        flash(f'Mesa {table.number} eliminada con éxito. Los pedidos históricos han sido desvinculados.', 'success')
+        flash(f'Mesa {table.number} eliminada con éxito.', 'success')
     
     page = request.form.get('page', 1, type=int)
     return redirect(url_for('admin.manage_tables', page=page))
@@ -340,134 +421,3 @@ def delete_user(user_id):
     db.session.commit()
     flash(f'Usuario {user.username} eliminado con éxito.', 'success')
     return redirect(url_for('admin.manage_users'))
-    # Reemplaza tu función reports() existente con esta nueva versión
-# Reemplaza tu función reports() existente en app/admin.py con esta versión
-@admin_bp.route('/reports')
-@admin_required
-def reports():
-    period = request.args.get('period', 'week')
-    today = date.today()
-    
-    if period == 'today':
-        start_date = datetime.combine(today, datetime.min.time())
-        end_date = datetime.combine(today, datetime.max.time())
-        subtitle = "para Hoy"
-    elif period == 'month':
-        start_date = datetime.combine(today.replace(day=1), datetime.min.time())
-        end_date = datetime.now()
-        subtitle = "para Este Mes"
-    elif period == 'year':
-        start_date = datetime.combine(today.replace(day=1, month=1), datetime.min.time())
-        end_date = datetime.now()
-        subtitle = "para Este Año"
-    else: # 'week' es el default
-        start_date = datetime.combine(today - timedelta(days=today.weekday()), datetime.min.time())
-        end_date = datetime.now()
-        subtitle = "para Esta Semana"
-
-    base_query = Order.query.filter(
-        Order.status == 'Pagado',
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    )
-    
-    total_ingresos = base_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
-    total_pedidos = base_query.count()
-    promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
-    
-    base_items_query = OrderItem.query.join(Order).filter(
-        Order.status == 'Pagado',
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    )
-    total_items_vendidos = base_items_query.with_entities(func.sum(OrderItem.quantity)).scalar() or 0
-    productos_mas_vendidos = base_items_query.join(Product).with_entities(
-        Product.name, func.sum(OrderItem.quantity).label('total_quantity')
-    ).group_by(Product.name).order_by(func.sum(OrderItem.quantity).desc()).limit(10).all()
-
-    ranking_productos = []
-    if total_items_vendidos > 0:
-        for producto in productos_mas_vendidos:
-            porcentaje = (producto.total_quantity / total_items_vendidos) * 100
-            ranking_productos.append({
-                'name': producto.name,
-                'quantity': producto.total_quantity,
-                'percentage': round(porcentaje, 2)
-            })
-
-    # --- Consultas para las tablas ---
-
-    # 1. Ingresos por Día (CON CAMBIO EN EL PROCESAMIENTO)
-    ventas_por_dia_query = db.session.query(
-        func.date(Order.updated_at).label('dia'),
-        func.sum(Order.total_amount).label('total_diario')
-    ).filter(
-        Order.status == 'Pagado',
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    ).group_by(func.date(Order.updated_at)).order_by(func.date(Order.updated_at).desc()).all()
-    
-    # ¡AQUÍ ESTÁ LA CORRECCIÓN! Convertimos el texto de fecha a un objeto de fecha real.
-    ventas_por_dia = []
-    for venta in ventas_por_dia_query:
-        ventas_por_dia.append({
-            'dia': datetime.strptime(venta.dia, '%Y-%m-%d').date(),
-            'total_diario': venta.total_diario
-        })
-    
-    # 2. Top Categorías
-    categorias_populares = db.session.query(
-        Product.type,
-        func.sum(OrderItem.subtotal).label('total_revenue')
-    ).join(OrderItem, OrderItem.product_id == Product.id)\
-     .join(Order, Order.id == OrderItem.order_id)\
-     .filter(
-        Order.status == 'Pagado',
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-     ).group_by(Product.type).order_by(func.sum(OrderItem.subtotal).desc()).limit(5).all()
-
-    # 3. Métodos de Pago
-    payment_methods_data = db.session.query(
-        Order.payment_method,
-        func.count(Order.id).label('count'),
-        func.sum(Order.total_amount).label('total')
-    ).filter(
-        Order.status == 'Pagado',
-        Order.payment_method.isnot(None),
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    ).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
-    
-    # 4. Ventas por Franja Horaria
-    hour_case = db.case(
-        (func.strftime('%H', Order.updated_at).between('08', '11'), 'Mañana (08-12)'),
-        (func.strftime('%H', Order.updated_at).between('12', '15'), 'Mediodía (12-16)'),
-        (func.strftime('%H', Order.updated_at).between('16', '19'), 'Tarde (16-20)'),
-        (func.strftime('%H', Order.updated_at).between('20', '23'), 'Noche (20-00)'),
-        else_='Madrugada (00-08)'
-    ).label('franja_horaria')
-
-    ventas_por_franja = db.session.query(
-        hour_case,
-        func.sum(Order.total_amount).label('total')
-    ).filter(
-        Order.status == 'Pagado',
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    ).group_by(hour_case).order_by(func.sum(Order.total_amount).desc()).all()
-
-
-    return render_template('admin/reports.html', 
-        title="Reportes de Ventas",
-        subtitle=subtitle,
-        active_period=period,
-        total_ingresos=total_ingresos,
-        total_pedidos=total_pedidos,
-        promedio_por_pedido=promedio_por_pedido,
-        ranking_productos=ranking_productos,
-        ventas_por_dia=ventas_por_dia,
-        categorias_populares=categorias_populares,
-        payment_methods_data=payment_methods_data,
-        ventas_por_franja=ventas_por_franja
-    )
