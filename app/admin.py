@@ -1,6 +1,6 @@
 # Archivo: app/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from .models import Product, Order, OrderItem, Table, User
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from . import db
 from .utils import admin_required
 from datetime import datetime, date, timedelta
@@ -21,11 +21,11 @@ def get_distinct_categories():
 def dashboard():
     today = date.today()
     
-    total_sales_today = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == 'Pagado').scalar() or 0.0
-    sales_today_table = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == 'Pagado', Order.type == 'Mesa').scalar() or 0.0
-    sales_today_takeaway = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == 'Pagado', Order.type == 'Para Llevar').scalar() or 0.0
-    active_orders_count = Order.query.filter(Order.status.in_(['Activo', 'Pendiente'])).count()
-    tables_occupied_count = Table.query.filter(Table.status == 'Ocupada').count()
+    total_sales_today = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == OrderStatus.PAID).scalar() or 0.0
+    sales_today_table = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == OrderStatus.PAID, Order.type == 'Mesa').scalar() or 0.0
+    sales_today_takeaway = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == OrderStatus.PAID, Order.type == 'Para Llevar').scalar() or 0.0
+    active_orders_count = Order.query.filter(Order.status.in_([OrderStatus.ACTIVE, OrderStatus.PENDING])).count()
+    tables_occupied_count = Table.query.filter(Table.status == TableStatus.OCCUPIED).count()
     top_products = db.session.query(
         Product.name,
         func.sum(OrderItem.quantity).label('total_quantity')
@@ -143,12 +143,44 @@ def delete_product(product_id):
         flash(f'Error al eliminar el producto: {str(e)}', 'danger')
     return redirect(url_for('admin.products'))
 
+# Archivo: app/admin.py
+
 @admin_bp.route('/sales-reports')
 @admin_required
 def sales_and_reports():
-    period = request.args.get('period', 'today')
     page = request.args.get('page', 1, type=int)
-    
+    period = request.args.get('period', 'today')
+
+    # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
+    # Capturamos los valores de los filtros del formulario
+    search_customer = request.args.get('customer', '').strip()
+    search_date_str = request.args.get('date', '').strip()
+    search_min_amount = request.args.get('min_amount', type=float)
+    search_max_amount = request.args.get('max_amount', type=float)
+    # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
+
+    # Query base para el registro detallado
+    log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
+
+    # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
+    # Aplicamos los filtros a la query si existen
+    if search_customer:
+        log_query = log_query.filter(Order.customer_name.ilike(f'%{search_customer}%'))
+    if search_date_str:
+        try:
+            search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
+            log_query = log_query.filter(func.date(Order.updated_at) == search_date)
+        except ValueError:
+            flash('Formato de fecha inválido. Use AAAA-MM-DD.', 'danger')
+    if search_min_amount is not None:
+        log_query = log_query.filter(Order.total_amount >= search_min_amount)
+    if search_max_amount is not None:
+        log_query = log_query.filter(Order.total_amount <= search_max_amount)
+    # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
+
+    # El resto de tu función de reportes (los bloques de arriba) permanece igual.
+    # Esta sección solo afecta a la tabla de "Registro Detallado".
+
     latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
     reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
 
@@ -177,7 +209,7 @@ def sales_and_reports():
         subtitle = "para Este Año"
 
     base_paid_query = Order.query.filter(
-        Order.status == 'Pagado',
+        Order.status == OrderStatus.PAID,
         Order.updated_at >= start_date,
         Order.updated_at <= end_date
     )
@@ -188,7 +220,7 @@ def sales_and_reports():
     
     ranking_productos = []
     base_items_query = OrderItem.query.join(Order).filter(
-        Order.status == 'Pagado',
+        Order.status == OrderStatus.PAID,
         Order.updated_at >= start_date,
         Order.updated_at <= end_date
     )
@@ -237,8 +269,7 @@ def sales_and_reports():
         hour_case,
         func.sum(Order.total_amount).label('total')
     ).group_by(hour_case).order_by(func.sum(Order.total_amount).desc()).all()
-
-    log_query = Order.query.filter(Order.status.in_(['Pagado', 'Venta Anulada']))
+    
     pagination = log_query.order_by(Order.updated_at.desc()).paginate(page=page, per_page=15, error_out=False)
 
     return render_template('admin/sales_and_reports.html', 
@@ -253,14 +284,21 @@ def sales_and_reports():
         categorias_populares=categorias_populares,
         payment_methods_summary=payment_methods_summary,
         ventas_por_franja=ventas_por_franja,
-        pagination=pagination
+        pagination=pagination,
+        # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
+        # Devolvemos los valores de búsqueda a la plantilla para que los campos no se borren
+        search_customer_value=search_customer,
+        search_date_value=search_date_str,
+        search_min_amount_value=search_min_amount,
+        search_max_amount_value=search_max_amount
+        # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
     )
+
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
 def sale_detail_view(order_id):
     order = Order.query.get_or_404(order_id)
     return_page = request.args.get('page', 1, type=int)
-    # Mantener los filtros al volver
     return_args = {key: val for key, val in request.args.items() if key != 'order_id'}
     
     return render_template('admin/sale_detail.html', 
@@ -273,19 +311,25 @@ def sale_detail_view(order_id):
 @admin_required
 def annul_sale(order_id):
     order = Order.query.get_or_404(order_id)
-    if order.status == 'Pagado':
-        order.status = 'Venta Anulada'
+    if order.status == OrderStatus.PAID:
+        
+        # --- LÓGICA DE CAJA ACTUALIZADA ---
+        active_session = CashSession.query.filter_by(status='Abierta').first()
+        if active_session and order.payment_method == 'Efectivo' and order.updated_at >= active_session.start_time:
+            active_session.annulled_cash_sales = (active_session.annulled_cash_sales or 0.0) + order.total_amount
+
+        order.status = OrderStatus.ANNULLED
         order.updated_at = datetime.utcnow()
         for item in order.items:
             if item.product and not item.display_name:
                 item.product.stock += item.quantity
+        
         db.session.commit()
         flash(f'Venta #{order.id} anulada con éxito. El stock ha sido repuesto.', 'success')
     else:
         flash('Solo se pueden anular ventas con estado "Pagado".', 'danger')
 
     return_page = request.form.get('page', 1, type=int)
-    # Reconstruir los argumentos para mantener el estado del filtro
     return_args = {key: val for key, val in request.form.items() if key not in ['order_id', 'csrf_token']}
     return redirect(url_for('admin.sales_and_reports', page=return_page, **return_args))
 
@@ -317,7 +361,7 @@ def add_table():
     if Table.query.filter_by(number=number).first():
         flash(f'Ya existe una mesa con el número {number}.', 'danger')
     else:
-        new_table = Table(number=number, capacity=capacity, status='Vacía')
+        new_table = Table(number=number, capacity=capacity, status=TableStatus.EMPTY)
         db.session.add(new_table)
         db.session.commit()
         flash(f'Mesa {number} añadida con éxito.', 'success')
@@ -348,7 +392,7 @@ def edit_table(table_id):
 @admin_required
 def delete_table(table_id):
     table = Table.query.get_or_404(table_id)
-    if table.status != 'Vacía':
+    if table.status != TableStatus.EMPTY:
         flash('No se puede eliminar una mesa que está ocupada. Libérela primero.', 'danger')
     else:
         Order.query.filter_by(table_id=table.id).update({'table_id': None})
@@ -411,8 +455,8 @@ def delete_user(user_id):
         return redirect(url_for('admin.manage_users'))
     
     user = User.query.get_or_404(user_id)
-    if user.role == 'admin':
-        admin_count = User.query.filter_by(role='admin').count()
+    if user.role == UserRoles.ADMIN:
+        admin_count = User.query.filter_by(role=UserRoles.ADMIN).count()
         if admin_count <= 1:
             flash('No se puede eliminar al único administrador del sistema.', 'danger')
             return redirect(url_for('admin.manage_users'))
@@ -421,3 +465,92 @@ def delete_user(user_id):
     db.session.commit()
     flash(f'Usuario {user.username} eliminado con éxito.', 'success')
     return redirect(url_for('admin.manage_users'))
+
+# --- NUEVAS RUTAS PARA EL CIERRE DE CAJA ---
+
+@admin_bp.route('/cash-drawer')
+@admin_required
+def cash_drawer():
+    active_session = CashSession.query.filter_by(status='Abierta').first()
+    
+    page = request.args.get('page', 1, type=int)
+    closed_sessions = CashSession.query.filter_by(status='Cerrada').order_by(CashSession.end_time.desc()).paginate(page=page, per_page=5, error_out=False)
+
+    return render_template('admin/cash_drawer.html', 
+                           title="Caja Diaria", 
+                           active_session=active_session,
+                           closed_sessions=closed_sessions)
+
+@admin_bp.route('/cash-drawer/open', methods=['POST'])
+@admin_required
+def open_cash_session():
+    starting_cash_str = request.form.get('starting_cash')
+    
+    active_session = CashSession.query.filter_by(status='Abierta').first()
+    if active_session:
+        flash('Ya hay una sesión de caja abierta.', 'danger')
+        return redirect(url_for('admin.cash_drawer'))
+
+    try:
+        starting_cash = float(starting_cash_str)
+        if starting_cash < 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        flash('El monto inicial debe ser un número válido y positivo.', 'danger')
+        return redirect(url_for('admin.cash_drawer'))
+
+    new_session = CashSession(
+        starting_cash=starting_cash,
+        user_id=current_user.id
+    )
+    db.session.add(new_session)
+    db.session.commit()
+    flash(f'Caja abierta con un fondo inicial de ${starting_cash:.2f}.', 'success')
+    return redirect(url_for('admin.cash_drawer'))
+
+@admin_bp.route('/cash-drawer/close/<int:session_id>', methods=['GET', 'POST'])
+@admin_required
+def close_cash_session(session_id):
+    session = CashSession.query.get_or_404(session_id)
+    if session.status != 'Abierta':
+        flash('Esta sesión ya ha sido cerrada.', 'warning')
+        return redirect(url_for('admin.cash_drawer'))
+
+    sales = db.session.query(
+        Order.payment_method,
+        func.sum(Order.total_amount).label('total')
+    ).filter(
+        Order.status == OrderStatus.PAID,
+        Order.updated_at >= session.start_time
+    ).group_by(Order.payment_method).all()
+
+    session.cash_sales = sum(s.total for s in sales if s.payment_method == 'Efectivo') or 0.0
+    session.card_sales = sum(s.total for s in sales if s.payment_method == 'Tarjeta') or 0.0
+    session.transfer_sales = sum(s.total for s in sales if s.payment_method == 'Transferencia') or 0.0
+    session.total_sales = sum(s.total for s in sales) or 0.0
+    
+    # --- CÁLCULO DE EFECTIVO ESPERADO ACTUALIZADO ---
+    session.expected_cash = session.starting_cash + session.cash_sales - (session.annulled_cash_sales or 0.0)
+
+    if request.method == 'POST':
+        counted_cash_str = request.form.get('counted_cash')
+        notes = request.form.get('notes')
+        try:
+            counted_cash = float(counted_cash_str)
+            if counted_cash < 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            flash('El monto contado debe ser un número válido y positivo.', 'danger')
+            return render_template('admin/close_cash_session.html', title="Cerrar Caja", session=session)
+        
+        session.counted_cash = counted_cash
+        session.difference = counted_cash - session.expected_cash
+        session.end_time = datetime.utcnow()
+        session.status = 'Cerrada'
+        session.notes = notes
+        
+        db.session.commit()
+        flash('Caja cerrada con éxito.', 'success')
+        return redirect(url_for('admin.cash_drawer'))
+
+    return render_template('admin/close_cash_session.html', title="Cerrar Caja", session=session)

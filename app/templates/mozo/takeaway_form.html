@@ -59,7 +59,9 @@
                 </div>
                 <div class="text-right">
                     <p class="font-semibold text-gray-800 dark:text-gray-100 subtotal-display">${{ "%.2f"|format(item.subtotal) }}</p>
+                    {% if order.status == 'Pendiente' %}
                     <button onclick="window.removeItem({{ item.id }}, '{{ (item.display_name or item.product.name) | e }}', {{ item.product.id if item.product else 'null' }})" class="text-xs text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors">Quitar</button>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -69,6 +71,12 @@
         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
             <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-gray-100">Añadir Productos</h3>
             <div id="add-item-message" class="text-sm"></div>
+
+            <div class="mb-4">
+                <input type="search" id="product-search-input" placeholder="🔎 Buscar producto por nombre..."
+                       class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition">
+            </div>
+
             <div class="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-4">
                 {% for type, products in products_by_category.items() %}
                     <button class="category-btn px-3 py-1.5 text-sm rounded-md transition-colors bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200" data-category="{{ type | replace(' ', '-') | replace('/', '') }}">{{ type }}</button>
@@ -91,10 +99,11 @@
     </div>
     {% endif %}
 </div>
+
 {% if order %}
 <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
     <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700">
-        <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Confirmar Pago</h3>
+        <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Confirmar Pago Pedido #{{order.id}}</h3>
         <form id="payment-form" action="{{ url_for('mozo.mark_takeaway_paid', order_id=order.id) }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-6">
@@ -118,14 +127,14 @@
         <form id="half-pizza-form" class="space-y-4">
             <div>
                 <label for="pizza1_id" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Primera Mitad</label>
-                <select name="pizza1_id" id="pizza1_id" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition">
+                <select name="pizza1_id" id="pizza1_id_takeaway" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition">
                     <option value="">Selecciona el primer sabor...</option>
                     {% for pizza in pizzas %}<option value="{{ pizza.id }}">{{ pizza.name }}</option>{% endfor %}
                 </select>
             </div>
             <div>
                 <label for="pizza2_id" class="block text-sm font-medium text-gray-600 dark:text-gray-300">Segunda Mitad</label>
-                <select name="pizza2_id" id="pizza2_id" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition">
+                <select name="pizza2_id" id="pizza2_id_takeaway" required class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 transition">
                     <option value="">Selecciona el segundo sabor...</option>
                     {% for pizza in pizzas %}<option value="{{ pizza.id }}">{{ pizza.name }}</option>{% endfor %}
                 </select>

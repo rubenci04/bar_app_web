@@ -33,3 +33,13 @@
     {% endfor %}
 </div>
 {% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Refrescar la página cada 30 segundos (30000 milisegundos)
+    setTimeout(function(){
+        window.location.reload(1);
+    }, 30000);
+</script>
+{% endblock %}

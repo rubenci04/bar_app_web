@@ -22,9 +22,8 @@ def create_app():
                 static_folder='static', 
                 template_folder='templates')
     
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-llave-secreta-muy-dificil-de-adivinar')
-    
-    # Crear el directorio de instancia si no existe
+ 
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')    # Crear el directorio de instancia si no existe
     os.makedirs(app.instance_path, exist_ok=True)
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

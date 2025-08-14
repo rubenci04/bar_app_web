@@ -2,9 +2,8 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Detalle de Venta - Pedido #{{ sale_order.id }}</h1>
-    <a href="{{ url_for('admin.sales_log', page=return_page, date=return_date_filter if return_date_filter else None) }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-800 dark:text-slate-100 transition-colors">
-        <i class="fa-solid fa-arrow-left mr-2"></i>Volver al Registro
-    </a>
+<a href="{{ url_for('admin.sales_and_reports', **return_args) }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-800 dark:text-slate-100 transition-colors">       
+ <i class="fa-solid fa-arrow-left mr-2"></i>Volver al Registro</a>
 </div>
 <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700">
     </div>

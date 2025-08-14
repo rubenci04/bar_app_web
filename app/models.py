@@ -4,11 +4,31 @@ from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
+# --- CONSTANTES DE ESTADOS Y ROLES ---
+class UserRoles:
+    ADMIN = 'admin'
+    MOZO = 'mozo'
+
+class TableStatus:
+    EMPTY = 'Vacía'
+    OCCUPIED = 'Ocupada'
+    PAID = 'Pagada'
+
+class OrderStatus:
+    PENDING = 'Pendiente'
+    ACTIVE = 'Activo'
+    PAID = 'Pagado'
+    CANCELED = 'Cancelado'
+    ANNULLED = 'Venta Anulada'
+# --- FIN DE CONSTANTES ---
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='mozo')
+    role = db.Column(db.String(20), nullable=False, default=UserRoles.MOZO)
+    # --- RELACIÓN AÑADIDA ---
+    cash_sessions = db.relationship('CashSession', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -25,7 +45,6 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     type = db.Column(db.String(50), nullable=False)
     stock = db.Column(db.Integer, default=0)
-    # --- CAMBIO REALIZADO AQUÍ ---
     description = db.Column(db.String(300), nullable=True)
 
     def __repr__(self):
@@ -35,7 +54,7 @@ class Table(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer, unique=True, nullable=False)
     capacity = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(20), default='Vacía')
+    status = db.Column(db.String(20), default=TableStatus.EMPTY) # Vacía, Ocupada, Pagada
     orders = db.relationship('Order', back_populates='table_assigned', lazy='dynamic')
 
     def __repr__(self):
@@ -43,8 +62,8 @@ class Table(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='Pendiente')
+    type = db.Column(db.String(20), nullable=False) # Mesa, Para Llevar
+    status = db.Column(db.String(20), nullable=False, default=OrderStatus.PENDING) # Pendiente, Activo, Pagado, Cancelado, Venta Anulada
     customer_name = db.Column(db.String(100), nullable=True)
     total_amount = db.Column(db.Float, nullable=True, default=0.0)
     payment_method = db.Column(db.String(50), nullable=True)
@@ -68,7 +87,7 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     unit_price = db.Column(db.Float, nullable=False)
     subtotal = db.Column(db.Float, nullable=False)
-    display_name = db.Column(db.String(200), nullable=True) 
+    display_name = db.Column(db.String(200), nullable=True)
     
     order = db.relationship('Order', back_populates='items')
     product = db.relationship('Product')
@@ -82,3 +101,30 @@ class OrderItem(db.Model):
 
     def __repr__(self):
         return f'<OrderItem {self.id}>'
+
+# --- MODELO PARA EL CIERRE DE CAJA ACTUALIZADO ---
+class CashSession(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    end_time = db.Column(db.DateTime, nullable=True)
+    starting_cash = db.Column(db.Float, nullable=False)
+    counted_cash = db.Column(db.Float, nullable=True) # El dinero físico contado al final
+    
+    # Valores calculados por el sistema al momento del cierre
+    cash_sales = db.Column(db.Float, nullable=True)
+    card_sales = db.Column(db.Float, nullable=True)
+    transfer_sales = db.Column(db.Float, nullable=True)
+    total_sales = db.Column(db.Float, nullable=True)
+    
+    # --- CAMPO NUEVO ---
+    annulled_cash_sales = db.Column(db.Float, default=0.0)
+
+    expected_cash = db.Column(db.Float, nullable=True) # starting_cash + cash_sales - annulled_cash_sales
+    difference = db.Column(db.Float, nullable=True) # counted_cash - expected_cash
+    
+    status = db.Column(db.String(20), nullable=False, default='Abierta') # Abierta, Cerrada
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+    def __repr__(self):
+        return f'<CashSession {self.id} - {self.status}>'

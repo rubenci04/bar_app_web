@@ -1,6 +1,6 @@
 # Archivo: app/mozo.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from .models import Table, Product, Order, OrderItem
+from .models import Table, Product, Order, OrderItem, TableStatus, OrderStatus
 from . import db
 from .utils import mozo_required
 from sqlalchemy.orm import selectinload
@@ -35,7 +35,7 @@ def tables_view():
     tables_query = Table.query.order_by(Table.number).all()
     tables_data = []
     for table in tables_query:
-        active_order = Order.query.filter_by(table_id=table.id, status='Activo').first()
+        active_order = Order.query.filter_by(table_id=table.id, status=OrderStatus.ACTIVE).first()
         total_pedido_activo = active_order.total_amount if active_order else 0.0
         tables_data.append({
             'id': table.id, 'number': table.number, 'capacity': table.capacity,
@@ -49,7 +49,7 @@ def table_detail_view(table_id):
     table_instance = Table.query.get_or_404(table_id)
     current_order = Order.query.filter(
         Order.table_id == table_instance.id,
-        Order.status.in_(['Activo', 'Pagado'])
+        Order.status.in_([OrderStatus.ACTIVE, OrderStatus.PAID])
     ).first()
     
     products_by_category = get_products_by_category()
@@ -68,10 +68,16 @@ def table_detail_view(table_id):
 @mozo_required
 def start_table_order(table_id):
     table = Table.query.get_or_404(table_id)
-    if table.status == 'Vacía':
-        new_order = Order(type='Mesa', table_id=table.id, status='Activo')
+    if table.status == TableStatus.EMPTY:
+        Order.query.filter(
+            Order.table_id == table.id,
+            Order.status.in_([OrderStatus.ACTIVE, OrderStatus.PENDING, OrderStatus.PAID])
+        ).delete()
+        db.session.commit()
+        
+        new_order = Order(type='Mesa', table_id=table.id, status=OrderStatus.ACTIVE)
         db.session.add(new_order)
-        table.status = 'Ocupada'
+        table.status = TableStatus.OCCUPIED
         db.session.commit()
         flash('Nuevo pedido iniciado en la mesa.', 'success')
     else:
@@ -82,9 +88,7 @@ def start_table_order(table_id):
 @mozo_required
 def add_item_to_order(order_id):
     order = Order.query.get_or_404(order_id)
-    # --- CORRECCIÓN CLAVE ---
-    # Permitir añadir ítems si el pedido está 'Activo' (mesa) o 'Pendiente' (para llevar)
-    if order.status not in ['Activo', 'Pendiente']:
+    if order.status not in [OrderStatus.ACTIVE, OrderStatus.PENDING]:
         return jsonify({'success': False, 'message': 'Solo se pueden añadir ítems a pedidos abiertos.'}), 400
 
     product_id = request.form.get('product_id', type=int)
@@ -121,7 +125,7 @@ def add_item_to_order(order_id):
 @mozo_required
 def add_half_pizza(order_id):
     order = Order.query.get_or_404(order_id)
-    if order.status not in ['Activo', 'Pendiente']:
+    if order.status not in [OrderStatus.ACTIVE, OrderStatus.PENDING]:
         return jsonify({'success': False, 'message': 'Solo se pueden añadir ítems a pedidos abiertos.'}), 400
         
     pizza1_id = request.form.get('pizza1_id', type=int)
@@ -154,7 +158,7 @@ def remove_item_from_order(item_id):
     order = order_item.order
     product = order_item.product
     
-    if order.status not in ['Activo', 'Pendiente']:
+    if order.status not in [OrderStatus.ACTIVE, OrderStatus.PENDING]:
         return jsonify({'success': False, 'message': 'No se pueden quitar ítems de un pedido que no esté activo o pendiente.'}), 400
 
     if product and not order_item.display_name:
@@ -175,12 +179,12 @@ def mark_order_paid(order_id):
 
     if not payment_method:
         flash('Debe seleccionar un método de pago.', 'danger')
-    elif order.status == 'Activo' and order.items:
-        order.status = 'Pagado'
+    elif order.status == OrderStatus.ACTIVE and order.items:
+        order.status = OrderStatus.PAID
         order.payment_method = payment_method
         order.updated_at = datetime.utcnow()
         if order.table_assigned:
-            order.table_assigned.status = 'Pagada'
+            order.table_assigned.status = TableStatus.PAID
         db.session.commit()
         flash(f'Pedido #{order.id} cobrado con {payment_method}. La mesa ahora está en estado "Pagada".', 'success')
     else:
@@ -194,8 +198,8 @@ def mark_order_paid(order_id):
 @mozo_required
 def clear_table(table_id):
     table = Table.query.get_or_404(table_id)
-    if table.status == 'Pagada':
-        table.status = 'Vacía'
+    if table.status == TableStatus.PAID:
+        table.status = TableStatus.EMPTY
         db.session.commit()
         flash(f'Mesa {table.number} liberada y lista para nuevos clientes.', 'success')
     else:
@@ -211,13 +215,13 @@ def cancel_order(order_id):
     order_type = order.type
     table_id = order.table_id
 
-    if order.status in ['Activo', 'Pendiente']:
+    if order.status in [OrderStatus.ACTIVE, OrderStatus.PENDING]:
         for item in order.items:
             if item.product and not item.display_name:
                 item.product.stock += item.quantity
         
-        if order.table_assigned and order.table_assigned.status == 'Ocupada':
-            order.table_assigned.status = 'Vacía'
+        if order.table_assigned and order.table_assigned.status == TableStatus.OCCUPIED:
+            order.table_assigned.status = TableStatus.EMPTY
         
         db.session.delete(order)
         db.session.commit()
@@ -230,10 +234,11 @@ def cancel_order(order_id):
     else:
         return redirect(url_for('mozo.takeaway_orders_view'))
 
+# --- Las rutas de "Para Llevar" no tienen cambios ---
 @mozo_bp.route('/takeaway')
 @mozo_required
 def takeaway_orders_view():
-    orders = Order.query.filter_by(type='Para Llevar', status='Pendiente').order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter_by(type='Para Llevar', status=OrderStatus.PENDING).order_by(Order.created_at.desc()).all()
     return render_template('mozo/takeaway_orders.html', orders=orders, title="Pedidos para Llevar")
 
 @mozo_bp.route('/takeaway/new', methods=['GET', 'POST'])
@@ -242,14 +247,13 @@ def new_takeaway_order():
     if request.method == 'POST':
         customer_name = request.form.get('customer_name', '').strip()
         if not customer_name:
-            flash('El nombre del cliente es obligatorio para crear un pedido.', 'danger')
+            flash('El nombre del cliente es obligatorio.', 'danger')
             return redirect(url_for('mozo.new_takeaway_order'))
-        else:
-            new_order = Order(type='Para Llevar', customer_name=customer_name, status='Pendiente')
-            db.session.add(new_order)
-            db.session.commit()
-            flash(f"Pedido para '{customer_name}' creado con éxito. Ahora puede añadir ítems.", 'success')
-            return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
+        new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
+        db.session.add(new_order)
+        db.session.commit()
+        flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
+        return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
     return render_template('mozo/takeaway_form.html', action="Nuevo", title="Nuevo Pedido para Llevar")
 
 @mozo_bp.route('/takeaway/<int:order_id>', methods=['GET', 'POST'])
@@ -261,7 +265,7 @@ def takeaway_order_detail(order_id):
     pizzas = Product.query.filter_by(type='Pizzas').order_by(Product.name).all()
 
     if request.method == 'POST':
-        if order.status == 'Pendiente':
+        if order.status == OrderStatus.PENDING:
             customer_name = request.form.get('customer_name', '').strip()
             if customer_name:
                 order.customer_name = customer_name
@@ -291,8 +295,8 @@ def mark_takeaway_paid(order_id):
         flash('Debe seleccionar un método de pago.', 'danger')
         return redirect(url_for('mozo.takeaway_order_detail', order_id=order.id))
 
-    if order.status == 'Pendiente' and order.items:
-        order.status = 'Pagado'
+    if order.status == OrderStatus.PENDING and order.items:
+        order.status = OrderStatus.PAID
         order.payment_method = payment_method
         order.updated_at = datetime.utcnow()
         db.session.commit()
@@ -307,12 +311,11 @@ def mark_takeaway_paid(order_id):
 @mozo_required
 def delete_takeaway_order(order_id):
     order = Order.query.filter_by(id=order_id, type='Para Llevar').first_or_404()
-    # Permitir borrar pedidos pendientes que se crearon por error
-    if order.status not in ['Pagado', 'Cancelado', 'Pendiente']:
+    if order.status not in [OrderStatus.PAID, OrderStatus.CANCELED, OrderStatus.PENDING]:
         flash('Solo se pueden eliminar pedidos que no estén activos.', 'warning')
         return redirect(url_for('mozo.takeaway_orders_view'))
         
-    if order.status == 'Pendiente':
+    if order.status == OrderStatus.PENDING:
         for item in order.items:
             if item.product and not item.display_name:
                 item.product.stock += item.quantity
