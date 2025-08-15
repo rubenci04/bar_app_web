@@ -1,5 +1,5 @@
 # Archivo: app/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from . import db
 from .utils import admin_required
@@ -334,27 +334,30 @@ def annul_sale(order_id):
     return redirect(url_for('admin.sales_and_reports', page=return_page, **return_args))
 
 
+
+
 @admin_bp.route('/tables')
 @admin_required
 def manage_tables():
-    page = request.args.get('page', 1, type=int)
-    pagination = Table.query.order_by(Table.number).paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
-    
+    # Antes se paginaba, ahora simplemente obtenemos todas las mesas
+    all_tables = Table.query.order_by(Table.number).all()
+
     return render_template('admin/manage_tables.html', 
-                           tables_on_page=pagination.items, 
-                           pagination=pagination, 
+                           tables=all_tables, # Cambiamos el nombre de la variable
                            title="Gestionar Mesas")
+
+
 
 @admin_bp.route('/tables/add', methods=['POST'])
 @admin_required
 def add_table():
     number_str = request.form.get('number')
     capacity_str = request.form.get('capacity')
-    
+
     if not number_str or not capacity_str:
         flash('El número y la capacidad de la mesa son obligatorios.', 'danger')
         return redirect(url_for('admin.manage_tables'))
-        
+
     number = int(number_str)
     capacity = int(capacity_str)
 
@@ -365,10 +368,11 @@ def add_table():
         db.session.add(new_table)
         db.session.commit()
         flash(f'Mesa {number} añadida con éxito.', 'success')
-    
+
+    # Simplemente redirigimos a la página principal de gestión de mesas
     return redirect(url_for('admin.manage_tables'))
 
-@admin_bp.route('/tables/edit/<int:table_id>', methods=['POST'])
+
 @admin_required
 def edit_table(table_id):
     table = Table.query.get_or_404(table_id)
@@ -554,3 +558,68 @@ def close_cash_session(session_id):
         return redirect(url_for('admin.cash_drawer'))
 
     return render_template('admin/close_cash_session.html', title="Cerrar Caja", session=session)
+
+# --- AÑADE ESTA NUEVA FUNCIÓN AL FINAL DEL ARCHIVO ---
+@admin_bp.route('/export-stats')
+@admin_required
+def export_stats():
+    period = request.args.get('period', 'today')
+    
+    # Reutilizamos la misma lógica de fechas de la página de reportes
+    latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
+    reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
+    
+    # (El resto de la lógica de fechas es idéntica a la función sales_and_reports...)
+    if period == 'today':
+        start_date = datetime.combine(reference_date, datetime.min.time())
+        end_date = datetime.combine(reference_date, datetime.max.time())
+        period_title = f"Hoy ({reference_date.strftime('%d-%m-%Y')})"
+    elif period == 'week':
+        start_of_week = reference_date - timedelta(days=reference_date.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+        start_date = datetime.combine(start_of_week, datetime.min.time())
+        end_date = datetime.combine(end_of_week, datetime.max.time())
+        period_title = f"Semana del {start_of_week.strftime('%d-%m-%Y')} al {end_of_week.strftime('%d-%m-%Y')}"
+    elif period == 'month':
+        start_of_month = reference_date.replace(day=1)
+        next_month = start_of_month.replace(day=28) + timedelta(days=4)
+        last_day_of_month = next_month - timedelta(days=next_month.day)
+        start_date = datetime.combine(start_of_month, datetime.min.time())
+        end_date = datetime.combine(last_day_of_month, datetime.max.time())
+        period_title = f"Mes de {start_of_month.strftime('%B %Y')}"
+    else:  # 'year'
+        start_of_year = reference_date.replace(day=1, month=1)
+        end_of_year = reference_date.replace(day=31, month=12)
+        start_date = datetime.combine(start_of_year, datetime.min.time())
+        end_date = datetime.combine(end_of_year, datetime.max.time())
+        period_title = f"Año {start_of_year.year}"
+
+    # Reutilizamos las queries de la página de reportes para obtener los datos
+    base_paid_query = Order.query.filter(Order.status == OrderStatus.PAID, Order.updated_at >= start_date, Order.updated_at <= end_date)
+    total_ingresos = base_paid_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
+    total_pedidos = base_paid_query.count()
+    promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
+    payment_methods_summary = base_paid_query.with_entities(Order.payment_method, func.count(Order.id), func.sum(Order.total_amount)).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).all()
+
+    # --- Generamos el contenido del archivo de texto ---
+    report_content = []
+    report_content.append("="*40)
+    report_content.append(" ESTADÍSTICAS DE VENTA - BAR DON ENRIQUE")
+    report_content.append(f" Período: {period_title}")
+    report_content.append("="*40)
+    report_content.append(f"Ingresos Totales:      ${total_ingresos:.2f}")
+    report_content.append(f"Pedidos Cobrados:      {total_pedidos}")
+    report_content.append(f"Promedio por Pedido:   ${promedio_por_pedido:.2f}")
+    report_content.append("-"*40)
+    report_content.append("Desglose por Método de Pago:")
+    for method, count, total in payment_methods_summary:
+        report_content.append(f"  - {method}: {count} pedidos, total ${total:.2f}")
+    report_content.append("="*40)
+
+    # Creamos la respuesta que forzará la descarga del archivo
+    filename = f"estadisticas_{period}_{reference_date.strftime('%Y%m%d')}.txt"
+    return Response(
+        "\n".join(report_content),
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
+    )

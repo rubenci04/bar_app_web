@@ -122,6 +122,7 @@ def create_app():
                 Product(name="Agregado Cebolla", type="Agregados", price=600.00, stock=999),
                 Product(name="Agregado Papas", type="Agregados", price=1400.00, stock=999),
                 Product(name="Agregado Hamburguesa", type="Agregados", price=1800.00, stock=999),
+                Product(name="Recargo Pizza Mitad/Mitad", type="Agregados", price=500.00, stock=999),
                 # Papas
                 Product(name="Papas Fritas", type="Papas", price=3200.00, stock=100),
                 Product(name="Papas Gratinadas Cheddar o tybo", type="Papas", price=4000.00, stock=100),

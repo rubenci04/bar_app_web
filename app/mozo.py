@@ -137,11 +137,20 @@ def add_half_pizza(order_id):
     pizza1 = Product.query.get_or_404(pizza1_id)
     pizza2 = Product.query.get_or_404(pizza2_id)
     
-    surcharge = 500.0
-    final_price = max(pizza1.price, pizza2.price) + surcharge
+    # --- LÓGICA DE PRECIOS CORREGIDA ---
+    # Buscamos el producto especial que define el recargo
+    surcharge_product = Product.query.filter_by(name="Recargo Pizza Mitad/Mitad").first()
+    # Si no existe, usamos un valor por defecto de 500 para evitar errores
+    surcharge = surcharge_product.price if surcharge_product else 500.0
+    
+    # Calculamos el precio final con la nueva fórmula
+    final_price = (pizza1.price / 2) + (pizza2.price / 2) + surcharge
     display_name = f"Mitad: {pizza1.name} / Mitad: {pizza2.name}"
     
-    order_item = OrderItem(order_id=order.id, product_id=pizza1.id, quantity=1, unit_price=final_price, display_name=display_name)
+    # Usamos el product_id de la pizza más cara como referencia
+    reference_product_id = pizza1.id if pizza1.price >= pizza2.price else pizza2.id
+    
+    order_item = OrderItem(order_id=order.id, product_id=reference_product_id, quantity=1, unit_price=final_price, display_name=display_name)
     db.session.add(order_item)
     order.calculate_total()
     db.session.commit()
