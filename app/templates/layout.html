@@ -75,18 +75,15 @@
             </div>
 
             <div class="md:hidden flex items-center">
-                <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">
+                <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">
                     <span class="sr-only">Abrir menú principal</span>
-                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
+                    <i class="fa-solid fa-bars h-6 w-6"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="md:hidden hidden" id="mobile-menu">
-        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+<div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600" id="mobile-menu">        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {% if current_user.is_authenticated %}
                 <a href="{{ url_for('mozo.tables_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Mesas</a>
                 <a href="{{ url_for('mozo.takeaway_orders_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Para Llevar</a>
@@ -127,100 +124,92 @@
         {% block content %}{% endblock %}
     </main>
     
-    {% block scripts %}
-        <script>
-            // Lógica para el interruptor de tema
-            const themeToggleBtn = document.getElementById('theme-toggle');
-            if (themeToggleBtn) {
-                const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
-                const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+   {% block scripts %}
+    <script>
+        // Lógica para el interruptor de tema
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+            const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+            const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
 
-                function updateTheme(isDarkMode) {
-                    updateButtonIcons(isDarkMode);
-                    document.documentElement.classList.toggle('dark', isDarkMode);
-                    localStorage.setItem('color-theme', isDarkMode ? 'dark' : 'light');
-                    themeToggleBtn.setAttribute('title', `Cambiar a modo ${isDarkMode ? 'claro' : 'oscuro'}`);
-                }
-                
-                function updateButtonIcons(isDarkMode) {
-                    if (isDarkMode) {
-                        themeToggleLightIcon.classList.remove('hidden');
-                        themeToggleDarkIcon.classList.add('hidden');
-                    } else {
-                        themeToggleDarkIcon.classList.remove('hidden');
-                        themeToggleLightIcon.classList.add('hidden');
-                    }
-                }
-
-                const isInitialDark = localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                updateTheme(isInitialDark);
-
-                themeToggleBtn.addEventListener('click', function() {
-                    const isDarkMode = !document.documentElement.classList.contains('dark');
-                    updateTheme(isDarkMode);
-                });
+            function updateTheme(isDarkMode) {
+                updateButtonIcons(isDarkMode);
+                document.documentElement.classList.toggle('dark', isDarkMode);
+                localStorage.setItem('color-theme', isDarkMode ? 'dark' : 'light');
+                themeToggleBtn.setAttribute('title', `Cambiar a modo ${isDarkMode ? 'claro' : 'oscuro'}`);
             }
-                
+            
+            function updateButtonIcons(isDarkMode) {
+                if (isDarkMode) {
+                    themeToggleLightIcon.classList.remove('hidden');
+                    themeToggleDarkIcon.classList.add('hidden');
+                } else {
+                    themeToggleDarkIcon.classList.remove('hidden');
+                    themeToggleLightIcon.classList.add('hidden');
+                }
+            }
 
-                    // --- AÑADIR ESTE NUEVO CÓDIGO PARA EL MENÚ MÓVIL ---
-    const mobileMenuButton = document.getElementById('mobile-menu-button');
-    const mobileMenu = document.getElementById('mobile-menu');
+            const isInitialDark = localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            updateTheme(isInitialDark);
 
-    if (mobileMenuButton) {
-        mobileMenuButton.addEventListener('click', function() {
-            mobileMenu.classList.toggle('hidden');
-        });
-    }
-
-// --- AÑADIR FUNCIÓN PARA MOSTRAR NOTIFICACIONES ---
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const toast = document.createElement('div');
-    
-    let bgColor, textColor, borderColor, iconClass;
-    switch (type) {
-        case 'success':
-            bgColor = 'bg-green-100 dark:bg-green-900/50';
-            textColor = 'text-green-800 dark:text-green-300';
-            borderColor = 'border-green-200 dark:border-green-700';
-            iconClass = 'fa-solid fa-check-circle';
-            break;
-        case 'danger':
-            bgColor = 'bg-red-100 dark:bg-red-900/50';
-            textColor = 'text-red-800 dark:text-red-300';
-            borderColor = 'border-red-200 dark:border-red-700';
-            iconClass = 'fa-solid fa-exclamation-triangle';
-            break;
-        default:
-            bgColor = 'bg-blue-100 dark:bg-blue-900/50';
-            textColor = 'text-blue-800 dark:text-blue-300';
-            borderColor = 'border-blue-200 dark:border-blue-700';
-            iconClass = 'fa-solid fa-info-circle';
-            break;
-    }
-
-    toast.className = `toast p-4 rounded-lg shadow-lg border ${bgColor} ${textColor} ${borderColor}`;
-    toast.innerHTML = `<i class="${iconClass} mr-2"></i> ${message}`;
-    
-    container.appendChild(toast);
-
-    // Forzar el repintado del navegador antes de añadir la clase 'show' para que la animación funcione
-    requestAnimationFrame(() => {
-        toast.classList.add('show');
-    });
-
-    // Ocultar y eliminar la notificación después de 3 segundos
-    setTimeout(() => {
-        toast.classList.remove('show');
-        toast.addEventListener('transitionend', () => toast.remove());
-    }, 3000);
+            themeToggleBtn.addEventListener('click', function() {
+                const isDarkMode = !document.documentElement.classList.contains('dark');
+                updateTheme(isDarkMode);
+            });
         }
-        </script>
-    {% endblock %}
-    
-<div id="toast-container" class="fixed bottom-5 right-5 z-[100] w-full max-w-xs space-y-3"></div>
+        
+        // --- CÓDIGO PARA EL MENÚ MÓVIL (AHORA DENTRO DEL SCRIPT) ---
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
 
-</body>
-</html>
+        if (mobileMenuButton) {
+            mobileMenuButton.addEventListener('click', function() {
+                mobileMenu.classList.toggle('hidden');
+            });
+        }
+
+        // --- FUNCIÓN PARA MOSTRAR NOTIFICACIONES (TOAST) ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            
+            let bgColor, textColor, borderColor, iconClass;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-100 dark:bg-green-900/50';
+                    textColor = 'text-green-800 dark:text-green-300';
+                    borderColor = 'border-green-200 dark:border-green-700';
+                    iconClass = 'fa-solid fa-check-circle';
+                    break;
+                case 'danger':
+                    bgColor = 'bg-red-100 dark:bg-red-900/50';
+                    textColor = 'text-red-800 dark:text-red-300';
+                    borderColor = 'border-red-200 dark:border-red-700';
+                    iconClass = 'fa-solid fa-exclamation-triangle';
+                    break;
+                default:
+                    bgColor = 'bg-blue-100 dark:bg-blue-900/50';
+                    textColor = 'text-blue-800 dark:text-blue-300';
+                    borderColor = 'border-blue-200 dark:border-blue-700';
+                    iconClass = 'fa-solid fa-info-circle';
+                    break;
+            }
+
+            toast.className = `toast p-4 rounded-lg shadow-lg border ${bgColor} ${textColor} ${borderColor}`;
+            toast.innerHTML = `<i class="${iconClass} mr-2"></i> ${message}`;
+            
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+    </script>
+{% endblock %}
