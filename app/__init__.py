@@ -34,7 +34,8 @@ def create_app():
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace('postgres://', 'postgresql://')
     else:
         # Si estamos en local, seguimos usando el archivo sqlite
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'    
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
     migrate.init_app(app, db)
