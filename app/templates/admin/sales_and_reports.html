@@ -4,12 +4,12 @@
     <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Ventas y Reportes</h1>
     <p class="text-gray-500 dark:text-gray-400 mt-1">Análisis de rendimiento y registro de ventas {{ subtitle }}.</p>
 </div>
-<div class="mb-6 flex flex-wrap gap-2">
+<div class="mb-6 flex flex-wrap gap-2 items-center">
     <a href="{{ url_for('admin.sales_and_reports', period='today') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'today' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Hoy</a>
     <a href="{{ url_for('admin.sales_and_reports', period='week') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'week' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Esta Semana</a>
     <a href="{{ url_for('admin.sales_and_reports', period='month') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'month' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Este Mes</a>
     <a href="{{ url_for('admin.sales_and_reports', period='year') }}" class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors {% if active_period == 'year' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Este Año</a>
-    <a href="{{ url_for('admin.export_stats', period=active_period) }}"class="px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 text-white shadow-md transition-colors ml-auto"><i class="fa-solid fa-download mr-2"></i>Exportar Estadísticas</a>
+    <a href="{{ url_for('admin.export_stats', period=active_period) }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 text-white shadow-md transition-colors ml-auto"><i class="fa-solid fa-download mr-2"></i>Exportar Estadísticas</a>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -237,4 +237,29 @@
     </nav>
 </div>
 {% endif %}
+
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Selecciona el formulario de filtros específico de esta página
+    const filterForm = document.querySelector("form[action*='{{ url_for('admin.sales_and_reports') }}']");
+
+    if (filterForm) {
+        const inputs = filterForm.querySelectorAll("input[type='text'], input[type='number'], input[type='date']");
+        
+        inputs.forEach(input => {
+            input.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    filterForm.submit();
+                }
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

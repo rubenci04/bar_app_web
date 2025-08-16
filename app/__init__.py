@@ -17,17 +17,18 @@ csrf = CSRFProtect()
 DB_NAME = "bar_app.db"
 
 def create_app():
-    app = Flask(__name__, 
-                instance_relative_config=True, 
-                static_folder='static', 
+    app = Flask(__name__,
+                instance_relative_config=True,
+                static_folder='static',
                 template_folder='templates')
+
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
     
- 
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')    # Crear el directorio de instancia si no existe
+    # Crear el directorio de instancia si no existe
     os.makedirs(app.instance_path, exist_ok=True)
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
+
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
@@ -46,14 +47,12 @@ def create_app():
     from .auth import auth_bp
     from .admin import admin_bp
     from .mozo import mozo_bp
-    
+
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(mozo_bp, url_prefix='/mozo')
-    
-    # --- LÍNEA CORREGIDA ---
-    # Ahora importamos 'OrderItem' junto con los otros modelos.
-    from .models import User, Product, Table, Order, OrderItem
+
+    from .models import User, Product, Table, Order, OrderItem, CashSession
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -63,12 +62,13 @@ def create_app():
     def seed_db_command():
         """Crea los datos iniciales para la base de datos."""
         with app.app_context():
-            # Limpiar datos existentes de productos y usuarios para un reinicio limpio
+            # Limpiar datos existentes
             OrderItem.query.delete()
             Order.query.delete()
             Product.query.delete()
             User.query.delete()
             Table.query.delete()
+            CashSession.query.delete()
             db.session.commit()
 
             print("Tablas limpiadas. Creando nuevos datos...")
@@ -81,68 +81,76 @@ def create_app():
             db.session.add_all([admin, mozo])
             print("-> Usuarios 'admin' y 'mozo' creados.")
 
-            # --- NUEVA LISTA DE PRODUCTOS ---
+            # --- LISTA DE PRODUCTOS ACTUALIZADA SEGÚN EL PDF ---
             products_to_add = [
                 # Sandwiches
-                Product(name="Milanesa Común", type="Sandwiches", price=5300.00, stock=100),
-                Product(name="Lomo Común", type="Sandwiches", price=6500.00, stock=100),
-                Product(name="Lomo Cheddar", type="Sandwiches", price=6500.00, stock=100),
-                Product(name="Ternera en sanguchero", type="Sandwiches", price=6500.00, stock=100),
+                Product(name="Milanesa Común", type="Sandwiches", price=6000.00, stock=100),
+                Product(name="Milanesa Especial", type="Sandwiches", price=7500.00, stock=100, description="Jamón, queso y papas fritas"),
+                Product(name="Lomo Común", type="Sandwiches", price=7500.00, stock=100),
+                Product(name="Lomo Cheddar", type="Sandwiches", price=7500.00, stock=100),
+                Product(name="Lomo Especial", type="Sandwiches", price=9000.00, stock=100, description="Jamón, queso y papas fritas"),
+                Product(name="Ternera en sanguchero", type="Sandwiches", price=7500.00, stock=100),
+
                 # Hamburguesas
-                Product(name="Hamburguesa Simple", type="Hamburguesas", price=4800.00, stock=100),
-                Product(name="Hamburguesa Especial", type="Hamburguesas", price=5400.00, stock=100),
-                Product(name="Hamburguesa Roque", type="Hamburguesas", price=6400.00, stock=100),
-                Product(name="Hamburguesa Pecaj", type="Hamburguesas", price=5400.00, stock=100),
-                Product(name="Especial Don Enrique (Hamb.)", type="Hamburguesas", price=6200.00, stock=100),
+                Product(name="Hamburguesa Simple", type="Hamburguesas", price=5000.00, stock=100, description="Hamburguesa, cheddar, lechuga, tomate, salsa bbq. C/ papas fritas."),
+                Product(name="Hamburguesa Especial", type="Hamburguesas", price=5500.00, stock=100, description="Hamburguesa, cheddar, lechuga, tomate, huevo, jamon, salsa bbq. C/ papas fritas."),
+                Product(name="Hamburguesa Roque", type="Hamburguesas", price=5500.00, stock=100, description="Hamburguesa, tybo, cebolla, lechuga, tomate, roquefort, salsa bbq. C/ papas fritas."),
+                Product(name="Hamburguesa Peca", type="Hamburguesas", price=5500.00, stock=100, description="Hamburguesa, cheddar, aros de cebolla fritos, huevo, panceta y salsa bbq. C/ papas fritas."),
+                Product(name="Especial Don Enrique (Hamb.)", type="Hamburguesas", price=6500.00, stock=100, description="Doble Hamburguesa, cheddar huevo, panceta, cebolla caramelizada y salsa bbq. C/ papas fritas."),
+
                 # Pizzas
-                Product(name="Muzzarella", type="Pizzas", price=7000.00, stock=100),
-                Product(name="Jamón y Morrones", type="Pizzas", price=8000.00, stock=100),
-                Product(name="Napolitana", type="Pizzas", price=8000.00, stock=100),
-                Product(name="Fugazzetta", type="Pizzas", price=8000.00, stock=100),
-                Product(name="Calabresa", type="Pizzas", price=8000.00, stock=100),
-                Product(name="Roquefort (Pizza)", type="Pizzas", price=8000.00, stock=100),
-                Product(name="Choclo (Pizza)", type="Pizzas", price=8500.00, stock=100),
-                Product(name="Ternera (Pizza)", type="Pizzas", price=10500.00, stock=100),
-                Product(name="Especial Don Enrique (Pizza)", type="Pizzas", price=10500.00, stock=100),
+                Product(name="Muzzarella", type="Pizzas", price=7000.00, stock=100, description="Salsa, muzzarela y aceitunas"),
+                Product(name="Jamón y Morrones", type="Pizzas", price=8000.00, stock=100, description="Salsa, muzzarela, jamón, morrones y aceitunas"),
+                Product(name="Napolitana", type="Pizzas", price=8000.00, stock=100, description="Salsa, muzzarela, rodajitas de tomate, y aceitunas"),
+                Product(name="Fugazzeta", type="Pizzas", price=8000.00, stock=100, description="Salsa, muzzarela, cebollita salteada y aceitunas"),
+                Product(name="Calabresa", type="Pizzas", price=8000.00, stock=100, description="Salsa, muzzarela, rodajas de salamin y aceitunas"),
+                Product(name="Roquefort (Pizza)", type="Pizzas", price=8000.00, stock=100, description="Salsa, muzzarela, roquefort y aceitunas"),
+                Product(name="Choclo", type="Pizzas", price=8500.00, stock=100, description="Salsa, muzzarela, choclo, huevo, morrón y aceitunas"),
+                Product(name="Ternera (Pizza)", type="Pizzas", price=10500.00, stock=100, description="Salsa, muzzarela, ternera, huevo, morron y aceitunas"),
+                Product(name="Especial Don Enrique (Pizza)", type="Pizzas", price=10500.00, stock=100, description="Salsa, muzzarela, papas fritas, huevos fritos, panceta, cebollita de verdeo y aceitunas"),
+
                 # Napolitanas
-                Product(name="Napo para 1 persona", type="Napolitanas", price=7600.00, stock=100),
-                Product(name="Napo para 2 personas", type="Napolitanas", price=11800.00, stock=100),
-                Product(name="Napo Al roquefort", type="Napolitanas", price=7600.00, stock=100),
-                Product(name="Napo a la fugazzeta", type="Napolitanas", price=7600.00, stock=100),
+                Product(name="Napo para 1 persona", type="Napolitanas", price=8000.00, stock=100),
+                Product(name="Napo para 2 personas", type="Napolitanas", price=13500.00, stock=100),
+                Product(name="Milanesa Al roquefort", type="Napolitanas", price=8000.00, stock=100, description="Milanesa, salsa, queso cremoso y queso roquefort. C/Fritas"),
+                Product(name="Milanesa a la fugazzeta", type="Napolitanas", price=8000.00, stock=100, description="Milanesa, queso, cebollita salteada y oregano. C/Fritas"),
+                Product(name="Milanesa a la Americana", type="Napolitanas", price=9000.00, stock=100, description="Milanesa, salsa, queso, panceta y huevo frito. C/Fritas"),
+
                 # Tostados
-                Product(name="Tostado Jamón y Queso", type="Tostados", price=4800.00, stock=100),
-                Product(name="Tostado Ternera y Queso", type="Tostados", price=5700.00, stock=100),
-                Product(name="Tostado Ternera verdura y queso", type="Tostados", price=6000.00, stock=100),
-                Product(name="1/2 Mexicano", type="Tostados", price=9000.00, stock=100),
+                Product(name="Tostado Jamón y Queso", type="Tostados", price=5500.00, stock=100),
+                Product(name="Tostado Ternera y Queso", type="Tostados", price=6500.00, stock=100),
+                Product(name="Tostado Ternera verdura y queso", type="Tostados", price=7500.00, stock=100),
+                Product(name="1/2 Mexicano", type="Tostados", price=11000.00, stock=100, description="(Jamón, queso, lechuga, tomate, lomo, cubierta gratinada con queso, Huevo c/papas)"),
+
                 # Agregados
-                Product(name="Agregado Jamón", type="Agregados", price=800.00, stock=999),
-                Product(name="Agregado Huevo", type="Agregados", price=800.00, stock=999),
-                Product(name="Agregado Panceta", type="Agregados", price=800.00, stock=999),
-                Product(name="Agregado Roque o cheddar", type="Agregados", price=800.00, stock=999),
-                Product(name="Agregado Cebolla", type="Agregados", price=600.00, stock=999),
-                Product(name="Agregado Papas", type="Agregados", price=1400.00, stock=999),
-                Product(name="Agregado Hamburguesa", type="Agregados", price=1800.00, stock=999),
+                Product(name="Agregado Jamón", type="Agregados", price=1000.00, stock=999),
+                Product(name="Agregado Huevo", type="Agregados", price=1000.00, stock=999),
+                Product(name="Agregado Panceta", type="Agregados", price=1000.00, stock=999),
+                Product(name="Agregado Roque o cheddar", type="Agregados", price=1000.00, stock=999),
+                Product(name="Agregado Cebolla", type="Agregados", price=500.00, stock=999),
+                Product(name="Agregado Papas", type="Agregados", price=1500.00, stock=999),
+                Product(name="Agregado Hamburguesa", type="Agregados", price=2000.00, stock=999),
                 Product(name="Recargo Pizza Mitad/Mitad", type="Agregados", price=500.00, stock=999),
+
                 # Papas
-                Product(name="Papas Fritas", type="Papas", price=3200.00, stock=100),
-                Product(name="Papas Gratinadas Cheddar o tybo", type="Papas", price=4000.00, stock=100),
-                Product(name="Papas Don Enrique", type="Papas", price=4600.00, stock=100),
-                Product(name="Papas Fritas (Porción)", type="Papas", price=3200.00, stock=100),
-                Product(name="Papas Fritas (Para 2)", type="Papas", price=4000.00, stock=100),
+                Product(name="Papas Fritas", type="Papas", price=3500.00, stock=100),
+                Product(name="Papas Gratinadas", type="Papas", price=4500.00, stock=100, description="Chedar/queso cremoso"),
+                Product(name="Papas Don Enrique", type="Papas", price=5000.00, stock=100, description="Papas grandes con cheddar, panceta y verdeo"),
+
                 # Bebidas c/Alcohol
-                Product(name="Quilmes / Salta 1lt", type="Bebidas c/Alcohol", price=4800.00, stock=100),
+                Product(name="Quilmes / Salta 1lt", type="Bebidas c/Alcohol", price=4500.00, stock=100),
                 Product(name="Imperial 1lt", type="Bebidas c/Alcohol", price=5000.00, stock=100),
                 Product(name="Norte 1lt", type="Bebidas c/Alcohol", price=4500.00, stock=100),
-                Product(name="Quilmes, Salta, Imperial lata", type="Bebidas c/Alcohol", price=2800.00, stock=100),
-                Product(name="Smirnoff sabor - lata", type="Bebidas c/Alcohol", price=2900.00, stock=100),
-                Product(name="Vino tinto 3/4", type="Bebidas c/Alcohol", price=4700.00, stock=100),
+                Product(name="Quilmes, Salta, Imperial lata", type="Bebidas c/Alcohol", price=3000.00, stock=100),
+                Product(name="Smirnoff sabor - lata", type="Bebidas c/Alcohol", price=3000.00, stock=100),
+                Product(name="Vino tinto 3/4", type="Bebidas c/Alcohol", price=5000.00, stock=100),
+
                 # Bebidas s/Alcohol
-                Product(name="Linea pepsi 2lt", type="Bebidas s/Alcohol", price=3800.00, stock=100),
-                Product(name="Linea coca lata", type="Bebidas s/Alcohol", price=4000.00, stock=100),
-                Product(name="Linea pepsi lata", type="Bebidas s/Alcohol", price=2500.00, stock=100),
-                Product(name="Agua Mineral 1.5lt", type="Bebidas s/Alcohol", price=3200.00, stock=100),
-                Product(name="Agua Mineral 500 ml", type="Bebidas s/Alcohol", price=2500.00, stock=100),
-                Product(name="Agua saborizada 1.5lt", type="Bebidas s/Alcohol", price=3200.00, stock=100),
+                Product(name="Linea pepsi 2lt", type="Bebidas s/Alcohol", price=3500.00, stock=100),
+                Product(name="Linea coca 1lt", type="Bebidas s/Alcohol", price=4000.00, stock=100),
+                Product(name="Linea pepsi lata", type="Bebidas s/Alcohol", price=2000.00, stock=100),
+                Product(name="Agua Mineral 500 ml", type="Bebidas s/Alcohol", price=2000.00, stock=100),
+                Product(name="Agua saborizada 1.5lt", type="Bebidas s/Alcohol", price=3000.00, stock=100),
             ]
             db.session.add_all(products_to_add)
             print(f"-> {len(products_to_add)} productos nuevos creados.")
@@ -157,7 +165,7 @@ def create_app():
             print("Credenciales por defecto:")
             print("  Admin: admin / admin123")
             print("  Mozo:  mozo / mozo123\n")
-    
+
     @app.route('/')
     def index():
         if current_user.is_authenticated:

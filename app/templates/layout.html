@@ -97,9 +97,12 @@
                     <a href="{{ url_for('admin.manage_users') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Usuarios</a>
                     <a href="{{ url_for('admin.cash_drawer') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Caja Diaria</a>
                 {% endif %}
-                <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-                <a href="{{ url_for('auth.logout') }}" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40">Salir</a>
-            {% endif %}
+                    <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                    <button id="theme-toggle-mobile" type="button" class="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                Cambiar Tema
+                    </button>
+                    <a href="{{ url_for('auth.logout') }}" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40">Salir</a>
+                {% endif %}
         </div>
     </div>
 </nav>
@@ -210,6 +213,16 @@
                 toast.classList.remove('show');
                 toast.addEventListener('transitionend', () => toast.remove());
             }, 3000);
+        }
+        // Dentro del <script> al final de layout.html
+
+        // --- AÑADE ESTE CÓDIGO ---
+        const themeToggleBtnMobile = document.getElementById('theme-toggle-mobile');
+        if (themeToggleBtnMobile) {
+            themeToggleBtnMobile.addEventListener('click', function() {
+                const isDarkMode = !document.documentElement.classList.contains('dark');
+                updateTheme(isDarkMode);
+            });
         }
     </script>
 {% endblock %}
