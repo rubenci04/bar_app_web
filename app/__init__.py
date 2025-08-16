@@ -26,8 +26,15 @@ def create_app():
     
     # Crear el directorio de instancia si no existe
     os.makedirs(app.instance_path, exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # Código Nuevo (el que tenés que agregar):
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # Si estamos en Render, usamos la URL de PostgreSQL
+        # Reemplazamos 'postgres://' por 'postgresql://' que es lo que SQLAlchemy prefiere
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace('postgres://', 'postgresql://')
+    else:
+        # Si estamos en local, seguimos usando el archivo sqlite
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
     migrate.init_app(app, db)
