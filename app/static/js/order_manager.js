@@ -165,35 +165,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    // --- Lógica de la interfaz de selección de productos (Categorías y Búsqueda) ---
-    const categoryButtons = document.querySelectorAll('.category-btn');
-    const productLists = document.querySelectorAll('.product-list');
-    const searchInput = document.getElementById('product-search-input');
+// --- Lógica de la interfaz de selección de productos (Categorías y Búsqueda) ---
+const categoryButtons = document.querySelectorAll('.category-btn');
+const productLists = document.querySelectorAll('.product-list');
+const searchInput = document.getElementById('product-search-input');
 
-    if (categoryButtons.length > 0) {
-        categoryButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const category = button.dataset.category;
+if (categoryButtons.length > 0) {
+    categoryButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const category = button.dataset.category;
 
-                // Resetea el buscador
-                if (searchInput) {
-                    searchInput.value = '';
-                    searchInput.dispatchEvent(new Event('input'));
-                }
+            // Resetea el buscador al cambiar de categoría
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+            }
 
-                // Actualiza el estilo de los botones
-                categoryButtons.forEach(btn => btn.classList.remove('bg-blue-600', 'text-white'));
-                button.classList.add('bg-blue-600', 'text-white');
+            // ===== INICIO DE LA LÓGICA DE RESALTADO =====
+            // 1. Quita el resaltado de TODOS los botones
+            categoryButtons.forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'font-semibold');
+                btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-800', 'dark:text-gray-200');
+            });
 
-                // Muestra la lista de productos correcta
-                productLists.forEach(list => {
-                    list.classList.toggle('hidden', list.id !== `products-${category}`);
-                });
+            // 2. Aplica el resaltado SOLO al botón que fue presionado
+            button.classList.add('bg-blue-600', 'text-white', 'font-semibold');
+            button.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-800', 'dark:text-gray-200');
+            // ===== FIN DE LA LÓGICA DE RESALTADO =====
+
+            // Muestra la lista de productos correcta
+            productLists.forEach(list => {
+                list.classList.toggle('hidden', list.id !== `products-${category}`);
             });
         });
-        // Activa la primera categoría por defecto
-        categoryButtons[0].click();
-    }
+    });
+    // Activa la primera categoría por defecto al cargar la página
+    categoryButtons[0].click();
+}
+
+if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase().trim();
+
+        productLists.forEach(list => {
+            const products = list.querySelectorAll('button');
+            products.forEach(product => {
+                const productName = product.querySelector('span.font-semibold').textContent.toLowerCase();
+                product.style.display = productName.includes(searchTerm) ? 'block' : 'none';
+            });
+        });
+    });
+}
 
     if (searchInput) {
         searchInput.addEventListener('input', function(e) {

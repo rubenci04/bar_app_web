@@ -35,44 +35,39 @@
             </div>
 
             <div class="hidden md:flex items-center space-x-4">
-                {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('mozo.tables_view') }}" 
-                       class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
-                       {% if request.endpoint == 'mozo.tables_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Mesas</a>
-                    <a href="{{ url_for('mozo.takeaway_orders_view') }}" 
-                       class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
-                       {% if request.endpoint == 'mozo.takeaway_orders_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Para Llevar</a>
-                    
-                    {% if current_user.role == 'admin' %}
-                        <span class="text-gray-300 dark:text-gray-600">|</span>
-                        {% set nav_links = {
-                            'Dashboard': 'admin.dashboard',
-                            'Ventas y Reportes': 'admin.sales_and_reports',
-                            'Productos': 'admin.products',
-                            'Gestionar Mesas': 'admin.manage_tables',
-                            'Usuarios': 'admin.manage_users',
-                            'Caja Diaria': 'admin.cash_drawer'
-                        } %}
-                        {% for name, endpoint in nav_links.items() %}
-                        <a href="{{ url_for(endpoint) }}" 
-                           class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700
-                           {% if request.endpoint == endpoint %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">
-                           {{ name }}
-                        </a>
-                        {% endfor %}
-                    {% endif %}
-                    <span class="text-gray-300 dark:text-gray-600">|</span>
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Usuario: <strong>{{ current_user.username }}</strong></span>
-                    <a href="{{ url_for('auth.logout') }}" class="px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:text-red-500 transition-colors">
-                        <i class="fa-solid fa-right-from-bracket mr-1"></i>Salir
-                    </a>
-                {% endif %}
-                
-                <button id="theme-toggle" type="button" title="Cambiar modo claro/oscuro" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <i id="theme-toggle-dark-icon" class="fa-solid fa-moon"></i>
-                    <i id="theme-toggle-light-icon" class="fa-solid fa-sun hidden"></i>
-                </button>
-            </div>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('mozo.tables_view') }}" 
+            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
+            {% if request.endpoint == 'mozo.tables_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Mesas</a>
+            <a href="{{ url_for('mozo.takeaway_orders_view') }}" 
+            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
+            {% if request.endpoint == 'mozo.takeaway_orders_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Para Llevar</a>
+
+            <span class="text-gray-300 dark:text-gray-600">|</span>
+
+            <a href="{{ url_for('admin.products') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.products' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Productos</a>
+            <a href="{{ url_for('admin.manage_tables') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.manage_tables' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Gestionar Mesas</a>
+            <a href="{{ url_for('admin.cash_drawer') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.cash_drawer' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Caja Diaria</a>
+
+            {% if current_user.role == 'admin' %}
+                <span class="text-gray-300 dark:text-gray-600">|</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.dashboard' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Dashboard</a>
+                <a href="{{ url_for('admin.sales_and_reports') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.sales_and_reports' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Ventas y Reportes</a>
+                <a href="{{ url_for('admin.manage_users') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.manage_users' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Usuarios</a>
+            {% endif %}
+
+            <span class="text-gray-300 dark:text-gray-600">|</span>
+            <span class="text-gray-500 dark:text-gray-400 text-sm">Usuario: <strong>{{ current_user.username }}</strong></span>
+            <a href="{{ url_for('auth.logout') }}" class="px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:text-red-500 transition-colors">
+                <i class="fa-solid fa-right-from-bracket mr-1"></i>Salir
+            </a>
+        {% endif %}
+
+        <button id="theme-toggle" type="button" title="Cambiar modo claro/oscuro" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <i id="theme-toggle-dark-icon" class="fa-solid fa-moon"></i>
+            <i id="theme-toggle-light-icon" class="fa-solid fa-sun hidden"></i>
+        </button>
+    </div>
 
             <div class="md:hidden flex items-center">
                 <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">
@@ -83,29 +78,33 @@
         </div>
     </div>
 
-<div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600" id="mobile-menu">        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {% if current_user.is_authenticated %}
-                <a href="{{ url_for('mozo.tables_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Mesas</a>
-                <a href="{{ url_for('mozo.takeaway_orders_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Para Llevar</a>
-                
-                {% if current_user.role == 'admin' %}
+        <div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('mozo.tables_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Mesas</a>
+                    <a href="{{ url_for('mozo.takeaway_orders_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Para Llevar</a>
+
                     <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-                    <a href="{{ url_for('admin.dashboard') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Dashboard</a>
-                    <a href="{{ url_for('admin.sales_and_reports') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Ventas y Reportes</a>
                     <a href="{{ url_for('admin.products') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Productos</a>
                     <a href="{{ url_for('admin.manage_tables') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Gestionar Mesas</a>
-                    <a href="{{ url_for('admin.manage_users') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Usuarios</a>
                     <a href="{{ url_for('admin.cash_drawer') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Caja Diaria</a>
-                {% endif %}
+
+                    {% if current_user.role == 'admin' %}
+                        <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                        <a href="{{ url_for('admin.dashboard') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Dashboard</a>
+                        <a href="{{ url_for('admin.sales_and_reports') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Ventas y Reportes</a>
+                        <a href="{{ url_for('admin.manage_users') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Usuarios</a>
+                    {% endif %}
+
                     <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
                     <button id="theme-toggle-mobile" type="button" class="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                Cambiar Tema
+                        Cambiar Tema
                     </button>
                     <a href="{{ url_for('auth.logout') }}" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40">Salir</a>
                 {% endif %}
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
     
     <main class="max-w-7xl mx-auto mt-6 px-4 sm:px-6 lg:px-8 py-4">
         {% with messages = get_flashed_messages(with_categories=true) %}

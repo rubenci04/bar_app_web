@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from . import db
-from .utils import admin_required
+from .utils import admin_required, mozo_required # Importamos mozo_required
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
 from flask_login import current_user
@@ -42,7 +42,7 @@ def dashboard():
     )
 
 @admin_bp.route('/products')
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def products():
     page = request.args.get('page', 1, type=int)
     search_name = request.args.get('search_name', '').strip()
@@ -54,9 +54,9 @@ def products():
     if search_category:
         query = query.filter(Product.type == search_category)
     pagination = query.order_by(Product.type, Product.name).paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
-    products_on_page = pagination.items
+    
     return render_template('admin/products.html', 
-                           products_on_page=products_on_page, 
+                           products_on_page=pagination.items, 
                            title="Gestionar Productos", 
                            pagination=pagination, 
                            search_name_value=search_name,
@@ -64,7 +64,7 @@ def products():
                            distinct_categories_for_filter=get_distinct_categories())
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def add_product():
     distinct_categories = get_distinct_categories()
     if request.method == 'POST':
@@ -96,7 +96,7 @@ def add_product():
     return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories)
 
 @admin_bp.route('/products/edit/<int:product_id>', methods=['GET', 'POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def edit_product(product_id):
     product = Product.query.get_or_404(product_id)
     distinct_categories = get_distinct_categories()
@@ -131,7 +131,7 @@ def edit_product(product_id):
     return render_template('admin/product_form.html', action="Editar", product=product, title=f"Editar {product.name}", categories=distinct_categories)
 
 @admin_bp.route('/products/delete/<int:product_id>', methods=['POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
     try:
@@ -143,27 +143,19 @@ def delete_product(product_id):
         flash(f'Error al eliminar el producto: {str(e)}', 'danger')
     return redirect(url_for('admin.products'))
 
-# Archivo: app/admin.py
-
 @admin_bp.route('/sales-reports')
 @admin_required
 def sales_and_reports():
     page = request.args.get('page', 1, type=int)
     period = request.args.get('period', 'today')
 
-    # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
-    # Capturamos los valores de los filtros del formulario
     search_customer = request.args.get('customer', '').strip()
     search_date_str = request.args.get('date', '').strip()
     search_min_amount = request.args.get('min_amount', type=float)
     search_max_amount = request.args.get('max_amount', type=float)
-    # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
 
-    # Query base para el registro detallado
     log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
 
-    # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
-    # Aplicamos los filtros a la query si existen
     if search_customer:
         log_query = log_query.filter(Order.customer_name.ilike(f'%{search_customer}%'))
     if search_date_str:
@@ -176,10 +168,6 @@ def sales_and_reports():
         log_query = log_query.filter(Order.total_amount >= search_min_amount)
     if search_max_amount is not None:
         log_query = log_query.filter(Order.total_amount <= search_max_amount)
-    # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
-
-    # El resto de tu función de reportes (los bloques de arriba) permanece igual.
-    # Esta sección solo afecta a la tabla de "Registro Detallado".
 
     latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
     reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
@@ -285,26 +273,21 @@ def sales_and_reports():
         payment_methods_summary=payment_methods_summary,
         ventas_por_franja=ventas_por_franja,
         pagination=pagination,
-        # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
-        # Devolvemos los valores de búsqueda a la plantilla para que los campos no se borren
         search_customer_value=search_customer,
         search_date_value=search_date_str,
         search_min_amount_value=search_min_amount,
         search_max_amount_value=search_max_amount
-        # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
     )
 
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
 def sale_detail_view(order_id):
     order = Order.query.get_or_404(order_id)
-    return_page = request.args.get('page', 1, type=int)
     return_args = {key: val for key, val in request.args.items() if key != 'order_id'}
     
     return render_template('admin/sale_detail.html', 
                            sale_order=order, 
                            title=f"Detalle de Venta #{order.id}",
-                           return_page=return_page,
                            return_args=return_args)
 
 @admin_bp.route('/annul_sale/<int:order_id>', methods=['POST'])
@@ -313,7 +296,6 @@ def annul_sale(order_id):
     order = Order.query.get_or_404(order_id)
     if order.status == OrderStatus.PAID:
         
-        # --- LÓGICA DE CAJA ACTUALIZADA ---
         active_session = CashSession.query.filter_by(status='Abierta').first()
         if active_session and order.payment_method == 'Efectivo' and order.updated_at >= active_session.start_time:
             active_session.annulled_cash_sales = (active_session.annulled_cash_sales or 0.0) + order.total_amount
@@ -329,27 +311,18 @@ def annul_sale(order_id):
     else:
         flash('Solo se pueden anular ventas con estado "Pagado".', 'danger')
 
-    return_page = request.form.get('page', 1, type=int)
     return_args = {key: val for key, val in request.form.items() if key not in ['order_id', 'csrf_token']}
-    return redirect(url_for('admin.sales_and_reports', page=return_page, **return_args))
-
-
-
-
+    return redirect(url_for('admin.sales_and_reports', **return_args))
 @admin_bp.route('/tables')
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def manage_tables():
-    # Antes se paginaba, ahora simplemente obtenemos todas las mesas
     all_tables = Table.query.order_by(Table.number).all()
-
     return render_template('admin/manage_tables.html', 
-                           tables=all_tables, # Cambiamos el nombre de la variable
+                           tables=all_tables,
                            title="Gestionar Mesas")
 
-
-
 @admin_bp.route('/tables/add', methods=['POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def add_table():
     number_str = request.form.get('number')
     capacity_str = request.form.get('capacity')
@@ -369,17 +342,22 @@ def add_table():
         db.session.commit()
         flash(f'Mesa {number} añadida con éxito.', 'success')
 
-    # Simplemente redirigimos a la página principal de gestión de mesas
     return redirect(url_for('admin.manage_tables'))
 
-
-@admin_required
+@admin_bp.route('/tables/edit/<int:table_id>', methods=['POST']) # CORRECCIÓN: Faltaba esta línea
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def edit_table(table_id):
     table = Table.query.get_or_404(table_id)
-    page = request.form.get('page', 1, type=int)
+    
+    new_number_str = request.form.get('number')
+    new_capacity_str = request.form.get('capacity')
+    
+    if not new_number_str or not new_capacity_str:
+        flash('El número y la capacidad no pueden estar vacíos.', 'danger')
+        return redirect(url_for('admin.manage_tables'))
 
-    new_number = request.form.get('number', type=int)
-    new_capacity = request.form.get('capacity', type=int)
+    new_number = int(new_number_str)
+    new_capacity = int(new_capacity_str)
     
     existing_table = Table.query.filter(Table.number == new_number, Table.id != table_id).first()
     if existing_table:
@@ -390,10 +368,10 @@ def edit_table(table_id):
         db.session.commit()
         flash(f'Mesa {table.number} actualizada con éxito.', 'success')
     
-    return redirect(url_for('admin.manage_tables', page=page))
+    return redirect(url_for('admin.manage_tables'))
 
 @admin_bp.route('/tables/delete/<int:table_id>', methods=['POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def delete_table(table_id):
     table = Table.query.get_or_404(table_id)
     if table.status != TableStatus.EMPTY:
@@ -404,15 +382,14 @@ def delete_table(table_id):
         db.session.commit()
         flash(f'Mesa {table.number} eliminada con éxito.', 'success')
     
-    page = request.form.get('page', 1, type=int)
-    return redirect(url_for('admin.manage_tables', page=page))
+    return redirect(url_for('admin.manage_tables'))
 
 @admin_bp.route('/users')
 @admin_required
 def manage_users():
     page = request.args.get('page', 1, type=int)
     pagination = User.query.order_by(User.id).paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
-    return render_template('admin/manage_users.html', users=pagination.items, title="Gestionar Usuarios", pagination=pagination)
+    return render_template('admin/manage_users.html', pagination=pagination, title="Gestionar Usuarios")
 
 @admin_bp.route('/users/add', methods=['GET', 'POST'])
 @admin_required
@@ -470,10 +447,8 @@ def delete_user(user_id):
     flash(f'Usuario {user.username} eliminado con éxito.', 'success')
     return redirect(url_for('admin.manage_users'))
 
-# --- NUEVAS RUTAS PARA EL CIERRE DE CAJA ---
-
 @admin_bp.route('/cash-drawer')
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def cash_drawer():
     active_session = CashSession.query.filter_by(status='Abierta').first()
     
@@ -486,7 +461,7 @@ def cash_drawer():
                            closed_sessions=closed_sessions)
 
 @admin_bp.route('/cash-drawer/open', methods=['POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def open_cash_session():
     starting_cash_str = request.form.get('starting_cash')
     
@@ -513,7 +488,7 @@ def open_cash_session():
     return redirect(url_for('admin.cash_drawer'))
 
 @admin_bp.route('/cash-drawer/close/<int:session_id>', methods=['GET', 'POST'])
-@admin_required
+@mozo_required  # CAMBIO: Se permite acceso a mozos
 def close_cash_session(session_id):
     session = CashSession.query.get_or_404(session_id)
     if session.status != 'Abierta':
@@ -533,7 +508,6 @@ def close_cash_session(session_id):
     session.transfer_sales = sum(s.total for s in sales if s.payment_method == 'Transferencia') or 0.0
     session.total_sales = sum(s.total for s in sales) or 0.0
     
-    # --- CÁLCULO DE EFECTIVO ESPERADO ACTUALIZADO ---
     session.expected_cash = session.starting_cash + session.cash_sales - (session.annulled_cash_sales or 0.0)
 
     if request.method == 'POST':
@@ -559,17 +533,14 @@ def close_cash_session(session_id):
 
     return render_template('admin/close_cash_session.html', title="Cerrar Caja", session=session)
 
-# --- AÑADE ESTA NUEVA FUNCIÓN AL FINAL DEL ARCHIVO ---
 @admin_bp.route('/export-stats')
 @admin_required
 def export_stats():
     period = request.args.get('period', 'today')
     
-    # Reutilizamos la misma lógica de fechas de la página de reportes
     latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
     reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
     
-    # (El resto de la lógica de fechas es idéntica a la función sales_and_reports...)
     if period == 'today':
         start_date = datetime.combine(reference_date, datetime.min.time())
         end_date = datetime.combine(reference_date, datetime.max.time())
@@ -594,14 +565,12 @@ def export_stats():
         end_date = datetime.combine(end_of_year, datetime.max.time())
         period_title = f"Año {start_of_year.year}"
 
-    # Reutilizamos las queries de la página de reportes para obtener los datos
     base_paid_query = Order.query.filter(Order.status == OrderStatus.PAID, Order.updated_at >= start_date, Order.updated_at <= end_date)
     total_ingresos = base_paid_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
     total_pedidos = base_paid_query.count()
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
     payment_methods_summary = base_paid_query.with_entities(Order.payment_method, func.count(Order.id), func.sum(Order.total_amount)).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).all()
 
-    # --- Generamos el contenido del archivo de texto ---
     report_content = []
     report_content.append("="*40)
     report_content.append(" ESTADÍSTICAS DE VENTA - BAR DON ENRIQUE")
@@ -616,7 +585,6 @@ def export_stats():
         report_content.append(f"  - {method}: {count} pedidos, total ${total:.2f}")
     report_content.append("="*40)
 
-    # Creamos la respuesta que forzará la descarga del archivo
     filename = f"estadisticas_{period}_{reference_date.strftime('%Y%m%d')}.txt"
     return Response(
         "\n".join(report_content),
