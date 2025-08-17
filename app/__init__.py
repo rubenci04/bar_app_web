@@ -16,13 +16,20 @@ csrf = CSRFProtect()
 
 DB_NAME = "bar_app.db"
 
+# Archivo: app/__init__.py
+
 def create_app():
     app = Flask(__name__,
                 instance_relative_config=True,
                 static_folder='static',
                 template_folder='templates')
 
+    # AÑADIR ESTA LÍNEA EXACTAMENTE AQUÍ
+    app.jinja_env.add_extension('jinja2.ext.do')
+
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
+
+    # ...el resto de tu configuración continúa...
     
     # Crear el directorio de instancia si no existe
     os.makedirs(app.instance_path, exist_ok=True)

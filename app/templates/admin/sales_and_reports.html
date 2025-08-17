@@ -220,16 +220,21 @@
 {% if pagination and pagination.pages > 1 %}
 <div class="mt-6 flex justify-center">
     <nav class="flex rounded-md shadow-sm" aria-label="Pagination">
-        <a href="{{ url_for('admin.sales_and_reports', **request.args.to_dict()|dict(page=pagination.prev_num)) if pagination.has_prev else '#' }}"
+
+        {% set prev_args = request.args.to_dict() %}
+        {% do prev_args.update({'page': pagination.prev_num}) %}
+        <a href="{{ url_for('admin.sales_and_reports', **prev_args) if pagination.has_prev else '#' }}"
            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 {% if not pagination.has_prev %}pointer-events-none text-gray-400 dark:text-gray-600{% endif %}">
             Anterior
         </a>
-        
+
         <span class="relative inline-flex items-center px-4 py-2 border-t border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300">
             Página {{ pagination.page }} de {{ pagination.pages }}
         </span>
 
-        <a href="{{ url_for('admin.sales_and_reports', **request.args.to_dict()|dict(page=pagination.next_num)) if pagination.has_next else '#' }}"
+        {% set next_args = request.args.to_dict() %}
+        {% do next_args.update({'page': pagination.next_num}) %}
+        <a href="{{ url_for('admin.sales_and_reports', **next_args) if pagination.has_next else '#' }}"
            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 {% if not pagination.has_next %}pointer-events-none text-gray-400 dark:text-gray-600{% endif %}">
             Siguiente
         </a>
