@@ -177,9 +177,7 @@
                     {% for sale_order in pagination.items %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td class="px-6 py-4">
-                            <a href="{{ url_for('admin.sale_detail_view', order_id=sale_order.id, page=pagination.page, **request.args) }}" class="text-blue-600 hover:text-blue-500 hover:underline">
-                                #{{ sale_order.id }}
-                            </a>
+                            <a href="{{ url_for('admin.sale_detail_view', order_id=sale_order.id, **request.args) }}" class="text-blue-600 hover:text-blue-500 hover:underline">#{{ sale_order.id }}</a>
                         </td>
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
                             {{ sale_order.type }}
