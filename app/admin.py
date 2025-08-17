@@ -1,7 +1,7 @@
 # Archivo: app/admin.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
 from . import db
-# LÍNEA CORREGIDA: Se agregan los modelos que faltaban
+# LÍNEA AÑADIDA PARA SOLUCIONAR EL ERROR
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from .utils import admin_required, mozo_required
 from datetime import datetime, date, timedelta
@@ -145,8 +145,9 @@ def delete_product(product_id):
     return redirect(url_for('admin.products'))
 
 @admin_bp.route('/sales-reports')
-@admin_required
+@mozo_required
 def sales_and_reports():
+    # ... el resto de la función ...
     page = request.args.get('page', 1, type=int)
     period = request.args.get('period', 'today')
 
@@ -289,6 +290,7 @@ def sales_and_reports():
         search_min_amount_value=search_min_amount,
         search_max_amount_value=search_max_amount
     )
+
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
 def sale_detail_view(order_id):
