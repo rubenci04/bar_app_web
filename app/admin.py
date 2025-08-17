@@ -1,8 +1,9 @@
 # Archivo: app/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
-from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
 from . import db
-from .utils import admin_required, mozo_required # Importamos mozo_required
+# LÍNEA CORREGIDA: Se agregan los modelos que faltaban
+from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
+from .utils import admin_required, mozo_required
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
 from flask_login import current_user
@@ -42,7 +43,7 @@ def dashboard():
     )
 
 @admin_bp.route('/products')
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def products():
     page = request.args.get('page', 1, type=int)
     search_name = request.args.get('search_name', '').strip()
@@ -64,7 +65,7 @@ def products():
                            distinct_categories_for_filter=get_distinct_categories())
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def add_product():
     distinct_categories = get_distinct_categories()
     if request.method == 'POST':
@@ -96,7 +97,7 @@ def add_product():
     return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories)
 
 @admin_bp.route('/products/edit/<int:product_id>', methods=['GET', 'POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def edit_product(product_id):
     product = Product.query.get_or_404(product_id)
     distinct_categories = get_distinct_categories()
@@ -131,7 +132,7 @@ def edit_product(product_id):
     return render_template('admin/product_form.html', action="Editar", product=product, title=f"Editar {product.name}", categories=distinct_categories)
 
 @admin_bp.route('/products/delete/<int:product_id>', methods=['POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
     try:
@@ -246,15 +247,22 @@ def sales_and_reports():
         func.sum(Order.total_amount).label('total')
     ).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
     
-    # CÓDIGO NUEVO Y CORREGIDO
+    # Detectamos qué base de datos se está usando
+    db_uri = current_app.config['SQLALCHEMY_DATABASE_URI']
+    if 'postgresql' in db_uri:
+        # Versión para PostgreSQL (cuando la app corre en Render)
+        hour_func = func.to_char(Order.updated_at, 'HH24')
+    else:
+        # Versión para SQLite (cuando la app corre en tu PC)
+        hour_func = func.strftime('%H', Order.updated_at)
+
     hour_case = db.case(
-        (func.to_char(Order.updated_at, 'HH24').between('08', '11'), 'Mañana (08-12)'),
-        (func.to_char(Order.updated_at, 'HH24').between('12', '15'), 'Mediodía (12-16)'),
-        (func.to_char(Order.updated_at, 'HH24').between('16', '19'), 'Tarde (16-20)'),
-        (func.to_char(Order.updated_at, 'HH24').between('20', '23'), 'Noche (20-00)'),
+        (hour_func.between('08', '11'), 'Mañana (08-12)'),
+        (hour_func.between('12', '15'), 'Mediodía (12-16)'),
+        (hour_func.between('16', '19'), 'Tarde (16-20)'),
+        (hour_func.between('20', '23'), 'Noche (20-00)'),
         else_='Madrugada (00-08)'
     ).label('franja_horaria')
-
 
     ventas_por_franja = base_paid_query.with_entities(
         hour_case,
@@ -281,7 +289,6 @@ def sales_and_reports():
         search_min_amount_value=search_min_amount,
         search_max_amount_value=search_max_amount
     )
-
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
 def sale_detail_view(order_id):
@@ -316,8 +323,9 @@ def annul_sale(order_id):
 
     return_args = {key: val for key, val in request.form.items() if key not in ['order_id', 'csrf_token']}
     return redirect(url_for('admin.sales_and_reports', **return_args))
+    
 @admin_bp.route('/tables')
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def manage_tables():
     all_tables = Table.query.order_by(Table.number).all()
     return render_template('admin/manage_tables.html', 
@@ -325,7 +333,7 @@ def manage_tables():
                            title="Gestionar Mesas")
 
 @admin_bp.route('/tables/add', methods=['POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def add_table():
     number_str = request.form.get('number')
     capacity_str = request.form.get('capacity')
@@ -347,8 +355,8 @@ def add_table():
 
     return redirect(url_for('admin.manage_tables'))
 
-@admin_bp.route('/tables/edit/<int:table_id>', methods=['POST']) # CORRECCIÓN: Faltaba esta línea
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@admin_bp.route('/tables/edit/<int:table_id>', methods=['POST'])
+@mozo_required
 def edit_table(table_id):
     table = Table.query.get_or_404(table_id)
     
@@ -374,7 +382,7 @@ def edit_table(table_id):
     return redirect(url_for('admin.manage_tables'))
 
 @admin_bp.route('/tables/delete/<int:table_id>', methods=['POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def delete_table(table_id):
     table = Table.query.get_or_404(table_id)
     if table.status != TableStatus.EMPTY:
@@ -451,7 +459,7 @@ def delete_user(user_id):
     return redirect(url_for('admin.manage_users'))
 
 @admin_bp.route('/cash-drawer')
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def cash_drawer():
     active_session = CashSession.query.filter_by(status='Abierta').first()
     
@@ -464,7 +472,7 @@ def cash_drawer():
                            closed_sessions=closed_sessions)
 
 @admin_bp.route('/cash-drawer/open', methods=['POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def open_cash_session():
     starting_cash_str = request.form.get('starting_cash')
     
@@ -491,7 +499,7 @@ def open_cash_session():
     return redirect(url_for('admin.cash_drawer'))
 
 @admin_bp.route('/cash-drawer/close/<int:session_id>', methods=['GET', 'POST'])
-@mozo_required  # CAMBIO: Se permite acceso a mozos
+@mozo_required
 def close_cash_session(session_id):
     session = CashSession.query.get_or_404(session_id)
     if session.status != 'Abierta':
