@@ -69,11 +69,19 @@ def table_detail_view(table_id):
 def start_table_order(table_id):
     table = Table.query.get_or_404(table_id)
     if table.status == TableStatus.EMPTY:
-        Order.query.filter(
+        # CÓDIGO NUEVO Y CORREGIDO
+        # Buscamos si hay pedidos viejos para esta mesa
+        old_orders = Order.query.filter(
             Order.table_id == table.id,
             Order.status.in_([OrderStatus.ACTIVE, OrderStatus.PENDING, OrderStatus.PAID])
-        ).delete()
-        db.session.commit()
+        ).all()
+
+        # Si encontramos pedidos viejos, los borramos uno por uno
+        # Esto permite que SQLAlchemy borre también sus ítems asociados (por la configuración de cascada)
+        if old_orders:
+            for order in old_orders:
+                db.session.delete(order)
+            db.session.commit() # Hacemos un commit después de borrar todo
         
         new_order = Order(type='Mesa', table_id=table.id, status=OrderStatus.ACTIVE)
         db.session.add(new_order)

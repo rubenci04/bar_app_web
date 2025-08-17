@@ -246,13 +246,16 @@ def sales_and_reports():
         func.sum(Order.total_amount).label('total')
     ).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
     
+    # CÓDIGO NUEVO Y CORREGIDO
     hour_case = db.case(
-        (func.strftime('%H', Order.updated_at).between('08', '11'), 'Mañana (08-12)'),
-        (func.strftime('%H', Order.updated_at).between('12', '15'), 'Mediodía (12-16)'),
-        (func.strftime('%H', Order.updated_at).between('16', '19'), 'Tarde (16-20)'),
-        (func.strftime('%H', Order.updated_at).between('20', '23'), 'Noche (20-00)'),
+        (func.to_char(Order.updated_at, 'HH24').between('08', '11'), 'Mañana (08-12)'),
+        (func.to_char(Order.updated_at, 'HH24').between('12', '15'), 'Mediodía (12-16)'),
+        (func.to_char(Order.updated_at, 'HH24').between('16', '19'), 'Tarde (16-20)'),
+        (func.to_char(Order.updated_at, 'HH24').between('20', '23'), 'Noche (20-00)'),
         else_='Madrugada (00-08)'
     ).label('franja_horaria')
+
+
     ventas_por_franja = base_paid_query.with_entities(
         hour_case,
         func.sum(Order.total_amount).label('total')
