@@ -3,6 +3,7 @@ from datetime import datetime
 from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
+from .utils import get_current_time
 
 # --- CONSTANTES DE ESTADOS Y ROLES ---
 class UserRoles:
@@ -67,8 +68,8 @@ class Order(db.Model):
     customer_name = db.Column(db.String(100), nullable=True)
     total_amount = db.Column(db.Float, nullable=True, default=0.0)
     payment_method = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_current_time)
+    updated_at = db.Column(db.DateTime, default=get_current_time, onupdate=get_current_time)
     table_id = db.Column(db.Integer, db.ForeignKey('table.id'), nullable=True)
     
     table_assigned = db.relationship('Table', back_populates='orders')
@@ -105,7 +106,7 @@ class OrderItem(db.Model):
 # --- MODELO PARA EL CIERRE DE CAJA ACTUALIZADO ---
 class CashSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    start_time = db.Column(db.DateTime, default=get_current_time)
     end_time = db.Column(db.DateTime, nullable=True)
     starting_cash = db.Column(db.Float, nullable=False)
     counted_cash = db.Column(db.Float, nullable=True) # El dinero físico contado al final

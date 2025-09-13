@@ -2,6 +2,12 @@
 from functools import wraps
 from flask_login import current_user
 from flask import redirect, url_for, flash
+from datetime import datetime
+import pytz
+
+def get_current_time():
+    """Retorna la hora actual con la zona horaria de Argentina."""
+    return datetime.now(pytz.timezone('America/Argentina/Buenos_Aires'))
 
 def admin_required(f):
     @wraps(f)

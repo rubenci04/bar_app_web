@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from . import db
 # LÍNEA AÑADIDA PARA SOLUCIONAR EL ERROR
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
-from .utils import admin_required, mozo_required
+from .utils import admin_required, mozo_required, get_current_time
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
 from flask_login import current_user
@@ -135,13 +135,22 @@ def edit_product(product_id):
 @mozo_required
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
-    try:
-        db.session.delete(product)
-        db.session.commit()
-        flash('Producto eliminado con éxito.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error al eliminar el producto: {str(e)}', 'danger')
+    
+    # Verificar si el producto está en algún pedido
+    is_in_order = OrderItem.query.filter_by(product_id=product.id).first()
+    
+    if is_in_order:
+        flash('No se puede eliminar el producto porque está asociado a uno o más pedidos existentes.', 'danger')
+    else:
+        try:
+            db.session.delete(product)
+            db.session.commit()
+            flash('Producto eliminado con éxito.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            # Usamos un mensaje más genérico por si ocurre otro tipo de error
+            flash(f'Ocurrió un error inesperado al eliminar el producto: {str(e)}', 'danger')
+            
     return redirect(url_for('admin.products'))
 
 @admin_bp.route('/sales-reports')
@@ -155,6 +164,7 @@ def sales_and_reports():
     search_date_str = request.args.get('date', '').strip()
     search_min_amount = request.args.get('min_amount', type=float)
     search_max_amount = request.args.get('max_amount', type=float)
+    search_weekday = request.args.get('weekday', '').strip()
 
     log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
 
@@ -170,6 +180,15 @@ def sales_and_reports():
         log_query = log_query.filter(Order.total_amount >= search_min_amount)
     if search_max_amount is not None:
         log_query = log_query.filter(Order.total_amount <= search_max_amount)
+    if search_weekday:
+        db_uri = current_app.config['SQLALCHEMY_DATABASE_URI']
+        if 'postgresql' in db_uri:
+            pg_weekday = search_weekday
+            if pg_weekday == '0': # Sunday
+                pg_weekday = '7'
+            log_query = log_query.filter(func.extract('isodow', Order.updated_at) == int(pg_weekday))
+        else:
+            log_query = log_query.filter(func.strftime('%w', Order.updated_at) == search_weekday)
 
     latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
     reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
@@ -288,7 +307,8 @@ def sales_and_reports():
         search_customer_value=search_customer,
         search_date_value=search_date_str,
         search_min_amount_value=search_min_amount,
-        search_max_amount_value=search_max_amount
+        search_max_amount_value=search_max_amount,
+        search_weekday_value=search_weekday
     )
 
 @admin_bp.route('/sale/detail/<int:order_id>')
@@ -313,7 +333,7 @@ def annul_sale(order_id):
             active_session.annulled_cash_sales = (active_session.annulled_cash_sales or 0.0) + order.total_amount
 
         order.status = OrderStatus.ANNULLED
-        order.updated_at = datetime.utcnow()
+        order.updated_at = get_current_time()
         for item in order.items:
             if item.product and not item.display_name:
                 item.product.stock += item.quantity
@@ -536,7 +556,7 @@ def close_cash_session(session_id):
         
         session.counted_cash = counted_cash
         session.difference = counted_cash - session.expected_cash
-        session.end_time = datetime.utcnow()
+        session.end_time = get_current_time()
         session.status = 'Cerrada'
         session.notes = notes
         
@@ -584,6 +604,7 @@ def export_stats():
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
     payment_methods_summary = base_paid_query.with_entities(Order.payment_method, func.count(Order.id), func.sum(Order.total_amount)).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).all()
 
+# ESTE ES EL BLOQUE CORRECTO
     report_content = []
     report_content.append("="*40)
     report_content.append(" ESTADÍSTICAS DE VENTA - BAR DON ENRIQUE")
@@ -593,6 +614,10 @@ def export_stats():
     report_content.append(f"Pedidos Cobrados:      {total_pedidos}")
     report_content.append(f"Promedio por Pedido:   ${promedio_por_pedido:.2f}")
     report_content.append("-"*40)
+    report_content.append("Desglose por Método de Pago:")
+    for method, count, total in payment_methods_summary:
+        report_content.append(f"  - {method}: {count} pedidos, total ${total:.2f}")
+    report_content.append("="*40)
     report_content.append("Desglose por Método de Pago:")
     for method, count, total in payment_methods_summary:
         report_content.append(f"  - {method}: {count} pedidos, total ${total:.2f}")

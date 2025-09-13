@@ -149,7 +149,7 @@
     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
         <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Registro Detallado de Ventas</h3>
         
-        <form method="GET" action="{{ url_for('admin.sales_and_reports') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mt-4 items-end">
+        <form method="GET" action="{{ url_for('admin.sales_and_reports') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 mt-4 items-end">
             <div class="md:col-span-1">
                 <label for="customer" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Cliente (Llevar)</label>
                 <input type="text" name="customer" id="customer" value="{{ search_customer_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition">
@@ -159,12 +159,25 @@
                 <input type="date" name="date" id="date" value="{{ search_date_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition">
             </div>
             <div>
+                <label for="weekday" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Día de Semana</label>
+                <select name="weekday" id="weekday" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition">
+                    <option value="">Todos</option>
+                    <option value="1" {% if search_weekday_value == '1' %}selected{% endif %}>Lunes</option>
+                    <option value="2" {% if search_weekday_value == '2' %}selected{% endif %}>Martes</option>
+                    <option value="3" {% if search_weekday_value == '3' %}selected{% endif %}>Miércoles</option>
+                    <option value="4" {% if search_weekday_value == '4' %}selected{% endif %}>Jueves</option>
+                    <option value="5" {% if search_weekday_value == '5' %}selected{% endif %}>Viernes</option>
+                    <option value="6" {% if search_weekday_value == '6' %}selected{% endif %}>Sábado</option>
+                    <option value="0" {% if search_weekday_value == '0' %}selected{% endif %}>Domingo</option>
+                </select>
+            </div>
+            <div>
                 <label for="min_amount" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Monto Mín.</label>
                 <input type="number" step="0.01" name="min_amount" id="min_amount" value="{{ search_min_amount_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 5000">
             </div>
             <div>
                 <label for="max_amount" class="block text-xs font-medium text-gray-600 dark:text-gray-300">Monto Máx.</label>
-                <input type="number" step="0.01" name="max_amount" id="max_amount" value="{{ search_max_amount_value or '' }}" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 15000">
+                <input type="number" step="0.01" name="max_amount" id="max_amount" value="{{ search_max_amount_value or '' }}" class.mt-1 block w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 transition" placeholder="Ej: 15000">
             </div>
             <div class="flex items-center gap-2">
                 <button type="submit" class="w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">Filtrar</button>
