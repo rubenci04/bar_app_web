@@ -1,12 +1,7 @@
+
 # Archivo: app/admin.py
-<<<<<<< Updated upstream
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response
-=======
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
->>>>>>> Stashed changes
 from . import db
-# LÍNEA AÑADIDA PARA SOLUCIONAR EL ERROR
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time
 from datetime import datetime, date, timedelta
@@ -169,51 +164,15 @@ def delete_product(product_id):
 def sales_and_reports():
     page = request.args.get('page', 1, type=int)
     period = request.args.get('period', 'today')
-<<<<<<< Updated upstream
-=======
-
-    # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
-    # Capturamos los valores de los filtros del formulario
->>>>>>> Stashed changes
     search_customer = request.args.get('customer', '').strip()
     search_date_str = request.args.get('date', '').strip()
     search_min_amount = request.args.get('min_amount', type=float)
     search_max_amount = request.args.get('max_amount', type=float)
-<<<<<<< Updated upstream
     search_weekday = request.args.get('weekday', '').strip()
-=======
-    # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
-
-    # Query base para el registro detallado
-    log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
-
-    # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
-    # Aplicamos los filtros a la query si existen
-    if search_customer:
-        log_query = log_query.filter(Order.customer_name.ilike(f'%{search_customer}%'))
-    if search_date_str:
-        try:
-            search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
-            log_query = log_query.filter(func.date(Order.updated_at) == search_date)
-        except ValueError:
-            flash('Formato de fecha inválido. Use AAAA-MM-DD.', 'danger')
-    if search_min_amount is not None:
-        log_query = log_query.filter(Order.total_amount >= search_min_amount)
-    if search_max_amount is not None:
-        log_query = log_query.filter(Order.total_amount <= search_max_amount)
-    # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
-
-    # El resto de tu función de reportes (los bloques de arriba) permanece igual.
-    # Esta sección solo afecta a la tabla de "Registro Detallado".
-
-    latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
-    reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
->>>>>>> Stashed changes
 
     # --- Lógica de Subtítulo y Período --- #
     has_filters = any([search_customer, search_date_str, search_min_amount is not None, search_max_amount is not None, search_weekday])
 
-<<<<<<< Updated upstream
     if has_filters:
         active_period = 'custom'
         subtitle_parts = []
@@ -268,13 +227,6 @@ def sales_and_reports():
             base_query = base_query.filter(func.extract('isodow', Order.updated_at) == int(pg_weekday))
         else:
             base_query = base_query.filter(func.strftime('%w', Order.updated_at) == search_weekday)
-=======
-    base_paid_query = Order.query.filter(
-        Order.status == OrderStatus.PAID,
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    )
->>>>>>> Stashed changes
     
     # Aplicar rango de período si no hay filtros de fecha específicos
     if not has_filters:
@@ -311,17 +263,12 @@ def sales_and_reports():
     total_pedidos = stats_query.count()
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
 
-    base_items_query = OrderItem.query.join(stats_query.subquery())
-
-    ranking_productos = []
-<<<<<<< Updated upstream
-=======
     base_items_query = OrderItem.query.join(Order).filter(
         Order.status == OrderStatus.PAID,
         Order.updated_at >= start_date,
         Order.updated_at <= end_date
     )
->>>>>>> Stashed changes
+    ranking_productos = []
     total_items_vendidos = base_items_query.with_entities(func.sum(OrderItem.quantity)).scalar() or 0
     if total_items_vendidos > 0:
         productos_mas_vendidos = base_items_query.join(Product).with_entities(
@@ -386,36 +333,21 @@ def sales_and_reports():
         payment_methods_summary=payment_methods_summary,
         ventas_por_franja=ventas_por_franja,
         pagination=pagination,
-<<<<<<< Updated upstream
         search_customer_value=search_customer,
         search_date_value=search_date_str,
         search_min_amount_value=search_min_amount,
         search_max_amount_value=search_max_amount,
         search_weekday_value=search_weekday
-=======
-        # --- INICIO DE CÓDIGO NUEVO Y CORREGIDO ---
-        # Devolvemos los valores de búsqueda a la plantilla para que los campos no se borren
-        search_customer_value=search_customer,
-        search_date_value=search_date_str,
-        search_min_amount_value=search_min_amount,
-        search_max_amount_value=search_max_amount
-        # --- FIN DE CÓDIGO NUEVO Y CORREGIDO ---
->>>>>>> Stashed changes
     )
 
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
 def sale_detail_view(order_id):
     order = Order.query.get_or_404(order_id)
-<<<<<<< Updated upstream
-    
     # Convertir datetimes a la zona horaria local
     order.created_at = convert_to_local_time(order.created_at)
     order.updated_at = convert_to_local_time(order.updated_at)
-
-=======
     return_page = request.args.get('page', 1, type=int)
->>>>>>> Stashed changes
     return_args = {key: val for key, val in request.args.items() if key != 'order_id'}
     
     return render_template('admin/sale_detail.html', 
@@ -428,34 +360,21 @@ def sale_detail_view(order_id):
 def annul_sale(order_id):
     order = Order.query.get_or_404(order_id)
     if order.status == OrderStatus.PAID:
-        
-<<<<<<< Updated upstream
-=======
         # --- LÓGICA DE CAJA ACTUALIZADA ---
->>>>>>> Stashed changes
         active_session = CashSession.query.filter_by(status='Abierta').first()
         if active_session and order.payment_method == 'Efectivo' and order.updated_at >= active_session.start_time:
             active_session.annulled_cash_sales = (active_session.annulled_cash_sales or 0.0) + order.total_amount
 
         order.status = OrderStatus.ANNULLED
-<<<<<<< Updated upstream
         order.updated_at = get_current_time()
-=======
-        order.updated_at = datetime.utcnow()
->>>>>>> Stashed changes
         for item in order.items:
             if item.product and not item.display_name:
                 item.product.stock += item.quantity
-        
         db.session.commit()
         flash(f'Venta #{order.id} anulada con éxito. El stock ha sido repuesto.', 'success')
     else:
         flash('Solo se pueden anular ventas con estado "Pagado".', 'danger')
-
-<<<<<<< Updated upstream
-=======
     return_page = request.form.get('page', 1, type=int)
->>>>>>> Stashed changes
     return_args = {key: val for key, val in request.form.items() if key not in ['order_id', 'csrf_token']}
     return redirect(url_for('admin.sales_and_reports', **return_args))
     
@@ -593,44 +512,28 @@ def delete_user(user_id):
     flash(f'Usuario {user.username} eliminado con éxito.', 'success')
     return redirect(url_for('admin.manage_users'))
 
-<<<<<<< Updated upstream
-@admin_bp.route('/cash-drawer')
-@mozo_required
-=======
-# --- NUEVAS RUTAS PARA EL CIERRE DE CAJA ---
-
 @admin_bp.route('/cash-drawer')
 @admin_required
->>>>>>> Stashed changes
 def cash_drawer():
     active_session = CashSession.query.filter_by(status='Abierta').first()
     
     page = request.args.get('page', 1, type=int)
     closed_sessions = CashSession.query.filter_by(status='Cerrada').order_by(CashSession.end_time.desc()).paginate(page=page, per_page=5, error_out=False)
 
-<<<<<<< Updated upstream
     # Convertir datetimes a la zona horaria local
     if active_session:
         active_session.start_time = convert_to_local_time(active_session.start_time)
-
     for session in closed_sessions.items:
         session.start_time = convert_to_local_time(session.start_time)
         if session.end_time:
             session.end_time = convert_to_local_time(session.end_time)
-
-=======
->>>>>>> Stashed changes
     return render_template('admin/cash_drawer.html', 
                            title="Caja Diaria", 
                            active_session=active_session,
                            closed_sessions=closed_sessions)
 
 @admin_bp.route('/cash-drawer/open', methods=['POST'])
-<<<<<<< Updated upstream
-@mozo_required
-=======
 @admin_required
->>>>>>> Stashed changes
 def open_cash_session():
     starting_cash_str = request.form.get('starting_cash')
     

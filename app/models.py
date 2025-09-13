@@ -124,11 +124,7 @@ class OrderItem(db.Model):
 # --- MODELO PARA EL CIERRE DE CAJA ACTUALIZADO ---
 class CashSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-<<<<<<< Updated upstream
     start_time = db.Column(db.DateTime, default=get_current_time)
-=======
-    start_time = db.Column(db.DateTime, default=datetime.utcnow)
->>>>>>> Stashed changes
     end_time = db.Column(db.DateTime, nullable=True)
     starting_cash = db.Column(db.Float, nullable=False)
     counted_cash = db.Column(db.Float, nullable=True) # El dinero físico contado al final
