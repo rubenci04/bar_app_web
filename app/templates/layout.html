@@ -12,11 +12,8 @@
     <style>
     body { font-family: 'Inter', sans-serif; }
 
-<<<<<<< Updated upstream
     /* --- ESTILOS PARA TOAST --- */
-=======
     /* --- AÑADIR ESTILOS PARA TOAST --- */
->>>>>>> Stashed changes
     .toast {
         opacity: 0;
         transform: translateX(100%);
@@ -30,7 +27,6 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 transition-colors duration-300">
     <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
-<<<<<<< Updated upstream
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <div class="flex-shrink-0">
@@ -87,7 +83,6 @@
                             <i class="fa-solid fa-right-from-bracket mr-1"></i>Salir
                         </a>
                     {% endif %}
->>>>>>> Stashed changes
                     
                     {% if current_user.role == 'admin' %}
                         <a href="{{ url_for('admin.cash_drawer') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.cash_drawer' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Caja Diaria</a>
@@ -210,7 +205,6 @@
                     updateTheme(isDarkMode);
                 });
             }
-<<<<<<< Updated upstream
         }
         
         // --- CÓDIGO PARA EL MENÚ MÓVIL ---
@@ -358,7 +352,6 @@ function showToast(message, type = 'info') {
     }, 3000);
         }
         </script>
->>>>>>> Stashed changes
     {% endblock %}
     
 <div id="toast-container" class="fixed bottom-5 right-5 z-[100] w-full max-w-xs space-y-3"></div>
