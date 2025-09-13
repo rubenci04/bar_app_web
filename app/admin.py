@@ -1,4 +1,3 @@
-
 # Archivo: app/admin.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response
 from . import db
@@ -560,11 +559,7 @@ def open_cash_session():
     return redirect(url_for('admin.cash_drawer'))
 
 @admin_bp.route('/cash-drawer/close/<int:session_id>', methods=['GET', 'POST'])
-<<<<<<< Updated upstream
-@mozo_required
-=======
 @admin_required
->>>>>>> Stashed changes
 def close_cash_session(session_id):
     session = CashSession.query.get_or_404(session_id)
     if session.status != 'Abierta':
@@ -584,10 +579,7 @@ def close_cash_session(session_id):
     session.transfer_sales = sum(s.total for s in sales if s.payment_method == 'Transferencia') or 0.0
     session.total_sales = sum(s.total for s in sales) or 0.0
     
-<<<<<<< Updated upstream
-=======
     # --- CÁLCULO DE EFECTIVO ESPERADO ACTUALIZADO ---
->>>>>>> Stashed changes
     session.expected_cash = session.starting_cash + session.cash_sales - (session.annulled_cash_sales or 0.0)
 
     if request.method == 'POST':
@@ -603,11 +595,7 @@ def close_cash_session(session_id):
         
         session.counted_cash = counted_cash
         session.difference = counted_cash - session.expected_cash
-<<<<<<< Updated upstream
         session.end_time = get_current_time()
-=======
-        session.end_time = datetime.utcnow()
->>>>>>> Stashed changes
         session.status = 'Cerrada'
         session.notes = notes
         
@@ -615,7 +603,6 @@ def close_cash_session(session_id):
         flash('Caja cerrada con éxito.', 'success')
         return redirect(url_for('admin.cash_drawer'))
 
-<<<<<<< Updated upstream
     return render_template('admin/close_cash_session.html', title="Cerrar Caja", session=session)
 
 @admin_bp.route('/export-stats')
@@ -681,6 +668,3 @@ def export_stats():
         mimetype="text/plain",
         headers={"Content-Disposition": f"attachment;filename={filename}"}
     )
-=======
-    return render_template('admin/close_cash_session.html', title="Cerrar Caja", session=session)
->>>>>>> Stashed changes
