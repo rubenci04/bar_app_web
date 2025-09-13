@@ -12,7 +12,11 @@
     <style>
     body { font-family: 'Inter', sans-serif; }
 
+<<<<<<< Updated upstream
     /* --- ESTILOS PARA TOAST --- */
+=======
+    /* --- AÑADIR ESTILOS PARA TOAST --- */
+>>>>>>> Stashed changes
     .toast {
         opacity: 0;
         transform: translateX(100%);
@@ -26,6 +30,7 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 transition-colors duration-300">
     <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
+<<<<<<< Updated upstream
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <div class="flex-shrink-0">
@@ -41,6 +46,48 @@
                     <a href="{{ url_for('admin.products') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.products' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Productos</a>
                     <a href="{{ url_for('admin.sales_and_reports') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.sales_and_reports' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Registro de Ventas</a>
                     <a href="{{ url_for('admin.manage_tables') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.manage_tables' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Gestionar Mesas</a>
+=======
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex-shrink-0">
+                    <a class="text-xl font-bold text-orange-500" href="{{ url_for('index') }}">
+                        <i class="fa-solid fa-utensils mr-2"></i>Bar Don Enrique
+                    </a>
+                </div>
+                <div class="hidden md:flex items-center space-x-4">
+                    {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('mozo.tables_view') }}" 
+                           class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
+                           {% if request.endpoint == 'mozo.tables_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Mesas</a>
+                        <a href="{{ url_for('mozo.takeaway_orders_view') }}" 
+                           class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
+                           {% if request.endpoint == 'mozo.takeaway_orders_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Para Llevar</a>
+                        
+                        {% if current_user.role == 'admin' %}
+                            <span class="text-gray-300 dark:text-gray-600">|</span>
+                            {% set nav_links = {
+                                'Dashboard': 'admin.dashboard',
+                                'Ventas y Reportes': 'admin.sales_and_reports',
+                                'Productos': 'admin.products',
+                                'Gestionar Mesas': 'admin.manage_tables',
+                                'Usuarios': 'admin.manage_users',
+                                'Caja Diaria': 'admin.cash_drawer'
+                            } %}
+                            {% for name, endpoint in nav_links.items() %}
+                            <a href="{{ url_for(endpoint) }}" 
+                               class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700
+                               {% if request.endpoint == endpoint %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">
+                               {{ name }}
+                            </a>
+                            {% endfor %}
+                        {% endif %}
+                        <span class="text-gray-300 dark:text-gray-600">|</span>
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Usuario: <strong>{{ current_user.username }}</strong></span>
+                        <a href="{{ url_for('auth.logout') }}" class="px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:text-red-500 transition-colors">
+                            <i class="fa-solid fa-right-from-bracket mr-1"></i>Salir
+                        </a>
+                    {% endif %}
+>>>>>>> Stashed changes
                     
                     {% if current_user.role == 'admin' %}
                         <a href="{{ url_for('admin.cash_drawer') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.cash_drawer' %} underline decoration-blue-500 decoration-2 underline-offset-4 {% endif %}">Caja Diaria</a>
@@ -163,6 +210,7 @@
                     updateTheme(isDarkMode);
                 });
             }
+<<<<<<< Updated upstream
         }
         
         // --- CÓDIGO PARA EL MENÚ MÓVIL ---
@@ -261,6 +309,59 @@
     }
     </script>
     <script src="{{ url_for('static', filename='js/form_validation.js') }}"></script>
+=======
+                // ... lógica del tema ...
+
+// --- AÑADIR FUNCIÓN PARA MOSTRAR NOTIFICACIONES ---
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    
+    let bgColor, textColor, borderColor, iconClass;
+    switch (type) {
+        case 'success':
+            bgColor = 'bg-green-100 dark:bg-green-900/50';
+            textColor = 'text-green-800 dark:text-green-300';
+            borderColor = 'border-green-200 dark:border-green-700';
+            iconClass = 'fa-solid fa-check-circle';
+            break;
+        case 'danger':
+            bgColor = 'bg-red-100 dark:bg-red-900/50';
+            textColor = 'text-red-800 dark:text-red-300';
+            borderColor = 'border-red-200 dark:border-red-700';
+            iconClass = 'fa-solid fa-exclamation-triangle';
+            break;
+        default:
+            bgColor = 'bg-blue-100 dark:bg-blue-900/50';
+            textColor = 'text-blue-800 dark:text-blue-300';
+            borderColor = 'border-blue-200 dark:border-blue-700';
+            iconClass = 'fa-solid fa-info-circle';
+            break;
+    }
+
+    toast.className = `toast p-4 rounded-lg shadow-lg border ${bgColor} ${textColor} ${borderColor}`;
+    toast.innerHTML = `<i class="${iconClass} mr-2"></i> ${message}`;
+    
+    container.appendChild(toast);
+
+    // Forzar el repintado del navegador antes de añadir la clase 'show' para que la animación funcione
+    requestAnimationFrame(() => {
+        toast.classList.add('show');
+    });
+
+    // Ocultar y eliminar la notificación después de 3 segundos
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, 3000);
+        }
+        </script>
+>>>>>>> Stashed changes
     {% endblock %}
+    
+<div id="toast-container" class="fixed bottom-5 right-5 z-[100] w-full max-w-xs space-y-3"></div>
+
 </body>
 </html>
