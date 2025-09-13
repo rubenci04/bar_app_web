@@ -10,7 +10,11 @@
     <h2 class="text-xl font-semibold text-green-600 dark:text-green-500 mb-4">Hay una Sesión de Caja Abierta</h2>
     <div class="space-y-2 text-gray-700 dark:text-gray-300">
         <p><strong>Usuario que abrió:</strong> {{ active_session.user.username }}</p>
+<<<<<<< Updated upstream
     <p><strong>Hora de apertura:</strong> {{ active_session.start_time|localtime('%d/%m/%Y %H:%M') }}</p>
+=======
+        <p><strong>Hora de apertura:</strong> {{ active_session.start_time.strftime('%d/%m/%Y %H:%M') }}</p>
+>>>>>>> Stashed changes
         <p><strong>Fondo inicial:</strong> ${{ "%.2f"|format(active_session.starting_cash) }}</p>
     </div>
     <div class="mt-6">
@@ -55,7 +59,11 @@
                 {% for session in closed_sessions.items %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td class="px-6 py-4 font-medium">#{{ session.id }}</td>
+<<<<<<< Updated upstream
                     <td class="px-6 py-4">{{ session.end_time|localtime('%d/%m/%Y %H:%M') }}</td>
+=======
+                    <td class="px-6 py-4">{{ session.end_time.strftime('%d/%m/%Y %H:%M') }}</td>
+>>>>>>> Stashed changes
                     <td class="px-6 py-4 text-right font-semibold text-green-600">${{ "%.2f"|format(session.total_sales) }}</td>
                     <td class="px-6 py-4 text-right font-semibold {% if session.difference < 0 %}text-red-500{% else %}text-blue-500{% endif %}">
                         ${{ "%.2f"|format(session.difference) }}

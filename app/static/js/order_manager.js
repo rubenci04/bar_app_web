@@ -85,145 +85,70 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+    
+    window.addItem = function(productId) {
+        const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
+        formData.append('product_id', productId);
+        formData.append('quantity', 1);
 
-    // --- Funciones para actualizar la Interfaz de Usuario (DOM) ---
-
-    // Función central para manejar las respuestas del servidor
-    function handleApiResponse(data) {
-        if (data.success) {
-            showToast(data.message, 'success');
-            if (data.item) {
-                updateOrInsertItemRow(data.item);
+        fetch(`/mozo/order/${orderId}/add_item`, { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                addItemToDOM(data.item);
+                updateOrderTotal(data.order_total);
+                showJsMessage(data.message, 'success');
+            } else {
+                showJsMessage(data.message, 'danger');
             }
-            if (data.removed_item_id) {
-                removeItemRow(data.removed_item_id);
+        });
+    };
+
+    window.removeItem = function(itemId, itemName, productId) {
+        if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
+        const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
+        
+        fetch(`/mozo/order_item/${itemId}/remove`, { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const itemRow = document.getElementById(`item-row-${itemId}`);
+                if (itemRow) itemRow.remove();
+                updateOrderTotal(data.order_total);
+                if (orderItemsList && orderItemsList.children.length === 0) {
+                     orderItemsList.innerHTML = '<p id="no-items-message" class="text-gray-400 dark:text-gray-500 py-4 text-center">No hay ítems en este pedido.</p>';
+                }
+            } else {
+                showJsMessage(data.message, 'danger');
             }
-            if (typeof data.order_total !== 'undefined') {
-                updateOrderUI(data.order_total);
-            }
-        } else {
-            showToast(data.message || 'Ocurrió un error.', 'danger');
-        }
-    }
+        });
+    };
 
-    function updateOrderUI(newTotal) {
-        // Actualiza el total
-        if (orderTotalElement) {
-            orderTotalElement.textContent = `$${parseFloat(newTotal).toFixed(2)}`;
-        }
+    const categoryButtons = document.querySelectorAll('.category-btn');
+    const productLists = document.querySelectorAll('.product-list');
 
-        // Habilita o deshabilita el botón de pago
-        if (paymentButton) {
-            const hasItems = newTotal > 0;
-            paymentButton.disabled = !hasItems;
-            paymentButton.classList.toggle('opacity-50', !hasItems);
-            paymentButton.classList.toggle('cursor-not-allowed', !hasItems);
-        }
-
-        // Si el total es 0, limpiar todos los ítems visuales
-        if (parseFloat(newTotal) === 0 && orderItemsList) {
-            Array.from(orderItemsList.children).forEach(el => {
-                if (el.id && el.id.startsWith('item-row-')) el.remove();
-            });
-        }
-
-        // Muestra u oculta el mensaje de "No hay ítems"
-        if (noItemsMessage && orderItemsList) {
-            const itemRows = Array.from(orderItemsList.children).filter(el => el.id && el.id.startsWith('item-row-'));
-            const hasItems = itemRows.length > 0;
-            noItemsMessage.style.display = hasItems ? 'none' : 'block';
-        }
-    }
-
-    function createItemRowHTML(item) {
-        const escapedName = item.name.replace(/'/g, "\\'");
-        return `
-            <div id="item-row-${item.id}" class="py-3 flex justify-between items-center">
-                <div>
-                    <p class="font-medium text-gray-800 dark:text-gray-100">${item.name}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        <span class="quantity-display">${item.quantity} x</span> $${parseFloat(item.unit_price).toFixed(2)}
-                    </p>
-                </div>
-                <div class="text-right">
-                    <p class="font-semibold text-gray-800 dark:text-gray-100 subtotal-display">$${parseFloat(item.subtotal).toFixed(2)}</p>
-                    <button onclick="window.removeItem(${item.id}, '${escapedName}')" class="text-xs text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors">Quitar</button>
-                </div>
-            </div>`;
-    }
-
-    function updateOrInsertItemRow(item) {
-        if (noItemsMessage) noItemsMessage.style.display = 'none';
-
-        let existingItemRow = document.getElementById(`item-row-${item.id}`);
-        // Solo actualiza la fila si NO es una pizza mitad/mitad (esas son siempre ítems únicos)
-        if (existingItemRow && !item.name.includes('Mitad:')) {
-            existingItemRow.querySelector('.quantity-display').textContent = `${item.quantity} x`;
-            existingItemRow.querySelector('.subtotal-display').textContent = `$${parseFloat(item.subtotal).toFixed(2)}`;
-        } else if (!existingItemRow) {
-            orderItemsList.insertAdjacentHTML('beforeend', createItemRowHTML(item));
-        }
-    }
-
-    function removeItemRow(itemId) {
-        const itemRow = document.getElementById(`item-row-${itemId}`);
-        if (itemRow) {
-            itemRow.remove();
-        }
-    }
-
-
-// --- Lógica de la interfaz de selección de productos (Categorías y Búsqueda) ---
-const categoryButtons = document.querySelectorAll('.category-btn');
-const productLists = document.querySelectorAll('.product-list');
-const searchInput = document.getElementById('product-search-input');
-
-if (categoryButtons.length > 0) {
     categoryButtons.forEach(button => {
         button.addEventListener('click', () => {
             const category = button.dataset.category;
-
-            // Resetea el buscador al cambiar de categoría
-            if (searchInput) {
-                searchInput.value = '';
-                searchInput.dispatchEvent(new Event('input'));
-            }
-
-            // ===== INICIO DE LA LÓGICA DE RESALTADO =====
-            // 1. Quita el resaltado de TODOS los botones
+            
+            productLists.forEach(list => list.classList.add('hidden'));
+            
             categoryButtons.forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white', 'font-semibold');
                 btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-800', 'dark:text-gray-200');
             });
 
-            // 2. Aplica el resaltado SOLO al botón que fue presionado
+            document.getElementById(`products-${category}`).classList.remove('hidden');
             button.classList.add('bg-blue-600', 'text-white', 'font-semibold');
             button.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-800', 'dark:text-gray-200');
-            // ===== FIN DE LA LÓGICA DE RESALTADO =====
-
-            // Muestra la lista de productos correcta
-            productLists.forEach(list => {
-                list.classList.toggle('hidden', list.id !== `products-${category}`);
-            });
         });
     });
-    // Activa la primera categoría por defecto al cargar la página
-    categoryButtons[0].click();
-}
 
-if (searchInput) {
-    searchInput.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase().trim();
-
-        productLists.forEach(list => {
-            const products = list.querySelectorAll('button');
-            products.forEach(product => {
-                const productName = product.querySelector('span.font-semibold').textContent.toLowerCase();
-                product.style.display = productName.includes(searchTerm) ? 'block' : 'none';
-            });
-        });
-    });
-}
+    if (categoryButtons.length > 0) {
+        categoryButtons[0].click();
+    }
 
     if (searchInput) {
         searchInput.addEventListener('input', function(e) {

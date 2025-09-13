@@ -23,6 +23,24 @@ class OrderStatus:
     ANNULLED = 'Venta Anulada'
 # --- FIN DE CONSTANTES ---
 
+# --- CONSTANTES DE ESTADOS Y ROLES ---
+class UserRoles:
+    ADMIN = 'admin'
+    MOZO = 'mozo'
+
+class TableStatus:
+    EMPTY = 'Vacía'
+    OCCUPIED = 'Ocupada'
+    PAID = 'Pagada'
+
+class OrderStatus:
+    PENDING = 'Pendiente'
+    ACTIVE = 'Activo'
+    PAID = 'Pagado'
+    CANCELED = 'Cancelado'
+    ANNULLED = 'Venta Anulada'
+# --- FIN DE CONSTANTES ---
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -106,7 +124,11 @@ class OrderItem(db.Model):
 # --- MODELO PARA EL CIERRE DE CAJA ACTUALIZADO ---
 class CashSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+<<<<<<< Updated upstream
     start_time = db.Column(db.DateTime, default=get_current_time)
+=======
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+>>>>>>> Stashed changes
     end_time = db.Column(db.DateTime, nullable=True)
     starting_cash = db.Column(db.Float, nullable=False)
     counted_cash = db.Column(db.Float, nullable=True) # El dinero físico contado al final
