@@ -27,6 +27,12 @@ def create_app():
     # AÑADIR ESTA LÍNEA EXACTAMENTE AQUÍ
     app.jinja_env.add_extension('jinja2.ext.do')
 
+    # Filtro para convertir UTC a hora local de Argentina
+    from .utils import convert_to_local_time
+    def localtime_filter(dt, fmt=None):
+        return convert_to_local_time(dt, fmt)
+    app.jinja_env.filters['localtime'] = localtime_filter
+
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
 
     # ...el resto de tu configuración continúa...

@@ -77,7 +77,7 @@
             </thead>
             <tbody>
             {% for venta in ventas_por_dia %}
-                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ venta.dia.strftime('%d/%m/%Y') }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(venta.total_diario) }}</td></tr>
+                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ venta.dia|localtime('%d/%m/%Y') }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(venta.total_diario) }}</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -187,7 +187,7 @@
     </div>
 
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+    <table id="sales-table" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
@@ -210,7 +210,7 @@
                             {{ sale_order.type }}
                             <span class="text-gray-400 dark:text-gray-500">({% if sale_order.type == 'Mesa' %}Mesa {{ sale_order.table_assigned.number if sale_order.table_assigned else 'N/A' }}{% else %}{{ sale_order.customer_name }}{% endif %})</span>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ sale_order.updated_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ sale_order.updated_at|localtime('%d/%m/%Y %H:%M') }}</td>
                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ sale_order.payment_method or 'N/A' }}</td>
                         <td class="px-6 py-4 font-semibold text-right text-gray-800 dark:text-gray-100">${{ "%.2f"|format(sale_order.total_amount) }}</td>
                         <td class="px-6 py-4 text-center">
@@ -271,9 +271,6 @@
 {% endblock %}
 
 
-{% block scripts %}
-{{ super() }}
-<script>
 document.addEventListener('DOMContentLoaded', function() {
     // Selecciona el formulario de filtros específico de esta página
     const filterForm = document.querySelector("form[action*='{{ url_for('admin.sales_and_reports') }}']");
@@ -291,5 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-</script>
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/sales_filters.js') }}"></script>
 {% endblock %}

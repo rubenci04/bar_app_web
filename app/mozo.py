@@ -185,7 +185,13 @@ def remove_item_from_order(item_id):
     order.calculate_total()
     db.session.commit()
 
-    return jsonify({ 'success': True, 'message': 'Ítem eliminado.', 'order_total': order.total_amount, 'product_stock': product.stock if product else 0 })
+    return jsonify({
+        'success': True,
+        'message': 'Ítem eliminado.',
+        'order_total': order.total_amount,
+        'product_stock': product.stock if product else 0,
+        'removed_item_id': item_id
+    })
 
 @mozo_bp.route('/order/<int:order_id>/mark_paid', methods=['POST'])
 @mozo_required

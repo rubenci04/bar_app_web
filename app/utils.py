@@ -6,8 +6,20 @@ from datetime import datetime
 import pytz
 
 def get_current_time():
-    """Retorna la hora actual con la zona horaria de Argentina."""
-    return datetime.now(pytz.timezone('America/Argentina/Buenos_Aires'))
+    """Retorna la hora actual en UTC."""
+    return datetime.now(pytz.utc)
+
+def convert_to_local_time(utc_dt, fmt=None):
+    """Convierte un datetime UTC a la zona horaria local de Argentina y lo formatea si se pasa fmt."""
+    if utc_dt is None:
+        return '' if fmt else None
+    if utc_dt.tzinfo is None:
+        utc_dt = pytz.utc.localize(utc_dt)
+    local_tz = pytz.timezone('America/Argentina/Buenos_Aires')
+    local_dt = utc_dt.astimezone(local_tz)
+    if fmt:
+        return local_dt.strftime(fmt)
+    return local_dt
 
 def admin_required(f):
     @wraps(f)

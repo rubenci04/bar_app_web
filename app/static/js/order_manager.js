@@ -120,9 +120,17 @@ document.addEventListener('DOMContentLoaded', function() {
             paymentButton.classList.toggle('cursor-not-allowed', !hasItems);
         }
 
+        // Si el total es 0, limpiar todos los ítems visuales
+        if (parseFloat(newTotal) === 0 && orderItemsList) {
+            Array.from(orderItemsList.children).forEach(el => {
+                if (el.id && el.id.startsWith('item-row-')) el.remove();
+            });
+        }
+
         // Muestra u oculta el mensaje de "No hay ítems"
-        if (noItemsMessage) {
-            const hasItems = orderItemsList.children.length > 0;
+        if (noItemsMessage && orderItemsList) {
+            const itemRows = Array.from(orderItemsList.children).filter(el => el.id && el.id.startsWith('item-row-'));
+            const hasItems = itemRows.length > 0;
             noItemsMessage.style.display = hasItems ? 'none' : 'block';
         }
     }

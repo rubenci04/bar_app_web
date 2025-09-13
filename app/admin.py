@@ -1,9 +1,9 @@
 # Archivo: app/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response
 from . import db
 # LÍNEA AÑADIDA PARA SOLUCIONAR EL ERROR
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
-from .utils import admin_required, mozo_required, get_current_time
+from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
 from flask_login import current_user
@@ -56,13 +56,17 @@ def products():
         query = query.filter(Product.type == search_category)
     pagination = query.order_by(Product.type, Product.name).paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
     
-    return render_template('admin/products.html', 
+    response = make_response(render_template('admin/products.html', 
                            products_on_page=pagination.items, 
                            title="Gestionar Productos", 
                            pagination=pagination, 
                            search_name_value=search_name,
                            search_category_value=search_category,
-                           distinct_categories_for_filter=get_distinct_categories())
+                           distinct_categories_for_filter=get_distinct_categories()))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
 @mozo_required
@@ -156,83 +160,110 @@ def delete_product(product_id):
 @admin_bp.route('/sales-reports')
 @mozo_required
 def sales_and_reports():
-    # ... el resto de la función ...
     page = request.args.get('page', 1, type=int)
     period = request.args.get('period', 'today')
-
     search_customer = request.args.get('customer', '').strip()
     search_date_str = request.args.get('date', '').strip()
     search_min_amount = request.args.get('min_amount', type=float)
     search_max_amount = request.args.get('max_amount', type=float)
     search_weekday = request.args.get('weekday', '').strip()
 
-    log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
+    # --- Lógica de Subtítulo y Período --- #
+    has_filters = any([search_customer, search_date_str, search_min_amount is not None, search_max_amount is not None, search_weekday])
 
+    if has_filters:
+        active_period = 'custom'
+        subtitle_parts = []
+        if search_date_str:
+            try:
+                search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
+                subtitle_parts.append(f"el {search_date.strftime('%d/%m/%Y')}")
+            except ValueError:
+                flash('Formato de fecha inválido. Use AAAA-MM-DD.', 'danger')
+                search_date_str = '' # Ignorar fecha inválida
+        if search_weekday:
+            days = {'1': 'Lunes', '2': 'Martes', '3': 'Miércoles', '4': 'Jueves', '5': 'Viernes', '6': 'Sábado', '0': 'Domingo'}
+            subtitle_parts.append(f"los días {days.get(search_weekday)}")
+        if search_customer:
+            subtitle_parts.append(f"cliente '{search_customer}'")
+        if subtitle_parts:
+            subtitle = f"para {' y '.join(subtitle_parts)}"
+        else:
+            subtitle = "con filtros personalizados"
+    else:
+        active_period = period
+        # Lógica de subtítulo para períodos predefinidos
+        if period == 'today':
+            subtitle = f"para Hoy ({get_current_time().strftime('%d/%m/%Y')})"
+        elif period == 'week':
+            subtitle = "para Esta Semana"
+        elif period == 'month':
+            subtitle = "para Este Mes"
+        else: # year
+            subtitle = "para Este Año"
+
+    # --- Construcción de la Query Base --- #
+    base_query = Order.query
+
+    # Aplicar filtros de formulario si existen
     if search_customer:
-        log_query = log_query.filter(Order.customer_name.ilike(f'%{search_customer}%'))
+        base_query = base_query.filter(Order.customer_name.ilike(f'%{search_customer}%'))
     if search_date_str:
         try:
             search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
-            log_query = log_query.filter(func.date(Order.updated_at) == search_date)
+            base_query = base_query.filter(func.date(Order.updated_at) == search_date)
         except ValueError:
-            flash('Formato de fecha inválido. Use AAAA-MM-DD.', 'danger')
+            pass # Ya se mostró el flash
     if search_min_amount is not None:
-        log_query = log_query.filter(Order.total_amount >= search_min_amount)
+        base_query = base_query.filter(Order.total_amount >= search_min_amount)
     if search_max_amount is not None:
-        log_query = log_query.filter(Order.total_amount <= search_max_amount)
+        base_query = base_query.filter(Order.total_amount <= search_max_amount)
     if search_weekday:
         db_uri = current_app.config['SQLALCHEMY_DATABASE_URI']
         if 'postgresql' in db_uri:
-            pg_weekday = search_weekday
-            if pg_weekday == '0': # Sunday
-                pg_weekday = '7'
-            log_query = log_query.filter(func.extract('isodow', Order.updated_at) == int(pg_weekday))
+            pg_weekday = '7' if search_weekday == '0' else search_weekday
+            base_query = base_query.filter(func.extract('isodow', Order.updated_at) == int(pg_weekday))
         else:
-            log_query = log_query.filter(func.strftime('%w', Order.updated_at) == search_weekday)
-
-    latest_sale = Order.query.order_by(Order.updated_at.desc()).first()
-    reference_date = latest_sale.updated_at.date() if latest_sale else date.today()
-
-    if period == 'today':
-        start_date = datetime.combine(reference_date, datetime.min.time())
-        end_date = datetime.combine(reference_date, datetime.max.time())
-        subtitle = f"para Hoy ({reference_date.strftime('%d/%m/%Y')})"
-    elif period == 'week':
-        start_of_week = reference_date - timedelta(days=reference_date.weekday())
-        end_of_week = start_of_week + timedelta(days=6)
-        start_date = datetime.combine(start_of_week, datetime.min.time())
-        end_date = datetime.combine(end_of_week, datetime.max.time())
-        subtitle = "para Esta Semana"
-    elif period == 'month':
-        start_of_month = reference_date.replace(day=1)
-        next_month = start_of_month.replace(day=28) + timedelta(days=4)
-        last_day_of_month = next_month - timedelta(days=next_month.day)
-        start_date = datetime.combine(start_of_month, datetime.min.time())
-        end_date = datetime.combine(last_day_of_month, datetime.max.time())
-        subtitle = "para Este Mes"
-    else:  # 'year'
-        start_of_year = reference_date.replace(day=1, month=1)
-        end_of_year = reference_date.replace(day=31, month=12)
-        start_date = datetime.combine(start_of_year, datetime.min.time())
-        end_date = datetime.combine(end_of_year, datetime.max.time())
-        subtitle = "para Este Año"
-
-    base_paid_query = Order.query.filter(
-        Order.status == OrderStatus.PAID,
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    )
+            base_query = base_query.filter(func.strftime('%w', Order.updated_at) == search_weekday)
     
-    total_ingresos = base_paid_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
-    total_pedidos = base_paid_query.count()
+    # Aplicar rango de período si no hay filtros de fecha específicos
+    if not has_filters:
+        reference_date = get_current_time().date()
+        if period == 'today':
+            start_date = datetime.combine(reference_date, datetime.min.time())
+            end_date = datetime.combine(reference_date, datetime.max.time())
+        elif period == 'week':
+            start_of_week = reference_date - timedelta(days=reference_date.weekday())
+            end_of_week = start_of_week + timedelta(days=6)
+            start_date = datetime.combine(start_of_week, datetime.min.time())
+            end_date = datetime.combine(end_of_week, datetime.max.time())
+        elif period == 'month':
+            start_of_month = reference_date.replace(day=1)
+            next_month = start_of_month.replace(day=28) + timedelta(days=4)
+            last_day_of_month = next_month - timedelta(days=next_month.day)
+            start_date = datetime.combine(start_of_month, datetime.min.time())
+            end_date = datetime.combine(last_day_of_month, datetime.max.time())
+        else: # 'year'
+            start_of_year = reference_date.replace(day=1, month=1)
+            end_of_year = reference_date.replace(day=31, month=12)
+            start_date = datetime.combine(start_of_year, datetime.min.time())
+            end_date = datetime.combine(end_of_year, datetime.max.time())
+        base_query = base_query.filter(Order.updated_at.between(start_date, end_date))
+
+    # --- Query para Estadísticas (solo ventas pagadas) --- #
+    stats_query = base_query.filter(Order.status == OrderStatus.PAID)
+
+    # --- Query para el Log Detallado (pagadas y anuladas) --- #
+    log_query = base_query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
+
+    # --- Cálculos de Estadísticas --- #
+    total_ingresos = stats_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
+    total_pedidos = stats_query.count()
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
-    
+
+    base_items_query = OrderItem.query.join(stats_query.subquery())
+
     ranking_productos = []
-    base_items_query = OrderItem.query.join(Order).filter(
-        Order.status == OrderStatus.PAID,
-        Order.updated_at >= start_date,
-        Order.updated_at <= end_date
-    )
     total_items_vendidos = base_items_query.with_entities(func.sum(OrderItem.quantity)).scalar() or 0
     if total_items_vendidos > 0:
         productos_mas_vendidos = base_items_query.join(Product).with_entities(
@@ -242,39 +273,28 @@ def sales_and_reports():
             porcentaje = (producto.total_quantity / total_items_vendidos) * 100
             ranking_productos.append({
                 'name': producto.name,
-                'quantity': producto.total_quantity,
+                'quantity': producto.quantity,
                 'percentage': round(porcentaje, 2)
             })
 
-    ventas_por_dia_query = base_paid_query.with_entities(
+    ventas_por_dia = stats_query.with_entities(
         func.date(Order.updated_at).label('dia'),
         func.sum(Order.total_amount).label('total_diario')
     ).group_by(func.date(Order.updated_at)).order_by(func.date(Order.updated_at).desc()).all()
-    
-    ventas_por_dia = []
-    for venta in ventas_por_dia_query:
-        dia_obj = datetime.strptime(venta.dia, '%Y-%m-%d').date() if isinstance(venta.dia, str) else venta.dia
-        ventas_por_dia.append({'dia': dia_obj, 'total_diario': venta.total_diario})
     
     categorias_populares = base_items_query.join(Product).with_entities(
         Product.type,
         func.sum(OrderItem.subtotal).label('total_revenue')
     ).group_by(Product.type).order_by(func.sum(OrderItem.subtotal).desc()).limit(5).all()
 
-    payment_methods_summary = base_paid_query.with_entities(
+    payment_methods_summary = stats_query.with_entities(
         Order.payment_method,
         func.count(Order.id).label('count'),
         func.sum(Order.total_amount).label('total')
     ).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
     
-    # Detectamos qué base de datos se está usando
     db_uri = current_app.config['SQLALCHEMY_DATABASE_URI']
-    if 'postgresql' in db_uri:
-        # Versión para PostgreSQL (cuando la app corre en Render)
-        hour_func = func.to_char(Order.updated_at, 'HH24')
-    else:
-        # Versión para SQLite (cuando la app corre en tu PC)
-        hour_func = func.strftime('%H', Order.updated_at)
+    hour_func = func.strftime('%H', Order.updated_at) if 'postgresql' not in db_uri else func.to_char(Order.updated_at, 'HH24')
 
     hour_case = db.case(
         (hour_func.between('08', '11'), 'Mañana (08-12)'),
@@ -284,17 +304,21 @@ def sales_and_reports():
         else_='Madrugada (00-08)'
     ).label('franja_horaria')
 
-    ventas_por_franja = base_paid_query.with_entities(
+    ventas_por_franja = stats_query.with_entities(
         hour_case,
         func.sum(Order.total_amount).label('total')
     ).group_by(hour_case).order_by(func.sum(Order.total_amount).desc()).all()
     
     pagination = log_query.order_by(Order.updated_at.desc()).paginate(page=page, per_page=15, error_out=False)
 
+    # Convertir datetimes a la zona horaria local para la paginación
+    for sale_order in pagination.items:
+        sale_order.updated_at = convert_to_local_time(sale_order.updated_at)
+
     return render_template('admin/sales_and_reports.html', 
         title="Ventas y Reportes",
         subtitle=subtitle,
-        active_period=period,
+        active_period=active_period,
         total_ingresos=total_ingresos,
         total_pedidos=total_pedidos,
         promedio_por_pedido=promedio_por_pedido,
@@ -315,6 +339,11 @@ def sales_and_reports():
 @admin_required
 def sale_detail_view(order_id):
     order = Order.query.get_or_404(order_id)
+    
+    # Convertir datetimes a la zona horaria local
+    order.created_at = convert_to_local_time(order.created_at)
+    order.updated_at = convert_to_local_time(order.updated_at)
+
     return_args = {key: val for key, val in request.args.items() if key != 'order_id'}
     
     return render_template('admin/sale_detail.html', 
@@ -488,6 +517,15 @@ def cash_drawer():
     page = request.args.get('page', 1, type=int)
     closed_sessions = CashSession.query.filter_by(status='Cerrada').order_by(CashSession.end_time.desc()).paginate(page=page, per_page=5, error_out=False)
 
+    # Convertir datetimes a la zona horaria local
+    if active_session:
+        active_session.start_time = convert_to_local_time(active_session.start_time)
+
+    for session in closed_sessions.items:
+        session.start_time = convert_to_local_time(session.start_time)
+        if session.end_time:
+            session.end_time = convert_to_local_time(session.end_time)
+
     return render_template('admin/cash_drawer.html', 
                            title="Caja Diaria", 
                            active_session=active_session,
@@ -610,17 +648,17 @@ def export_stats():
     report_content.append(" ESTADÍSTICAS DE VENTA - BAR DON ENRIQUE")
     report_content.append(f" Período: {period_title}")
     report_content.append("="*40)
-    report_content.append(f"Ingresos Totales:      ${total_ingresos:.2f}")
+    report_content.append(f"Ingresos Totales:      {total_ingresos:.2f}")
     report_content.append(f"Pedidos Cobrados:      {total_pedidos}")
-    report_content.append(f"Promedio por Pedido:   ${promedio_por_pedido:.2f}")
+    report_content.append(f"Promedio por Pedido:   {promedio_por_pedido:.2f}")
     report_content.append("-"*40)
     report_content.append("Desglose por Método de Pago:")
     for method, count, total in payment_methods_summary:
-        report_content.append(f"  - {method}: {count} pedidos, total ${total:.2f}")
+        report_content.append(f"  - {method}: {count} pedidos, total {total:.2f}")
     report_content.append("="*40)
     report_content.append("Desglose por Método de Pago:")
     for method, count, total in payment_methods_summary:
-        report_content.append(f"  - {method}: {count} pedidos, total ${total:.2f}")
+        report_content.append(f"  - {method}: {count} pedidos, total {total:.2f}")
     report_content.append("="*40)
 
     filename = f"estadisticas_{period}_{reference_date.strftime('%Y%m%d')}.txt"
