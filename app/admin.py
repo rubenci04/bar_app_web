@@ -168,6 +168,7 @@ def sales_and_reports():
     search_min_amount = request.args.get('min_amount', type=float)
     search_max_amount = request.args.get('max_amount', type=float)
     search_weekday = request.args.get('weekday', '').strip()
+    now = get_current_time()
 
     # --- Lógica de Subtítulo y Período --- #
     has_filters = any([search_customer, search_date_str, search_min_amount is not None, search_max_amount is not None, search_weekday])
@@ -195,7 +196,7 @@ def sales_and_reports():
         active_period = period
         # Lógica de subtítulo para períodos predefinidos
         if period == 'today':
-            subtitle = f"para Hoy ({get_current_time().strftime('%d/%m/%Y')})"
+            subtitle = f"para Hoy ({now.strftime('%d/%m/%Y')})"
         elif period == 'week':
             subtitle = "para Esta Semana"
         elif period == 'month':
@@ -227,9 +228,9 @@ def sales_and_reports():
         else:
             base_query = base_query.filter(func.strftime('%w', Order.updated_at) == search_weekday)
     
-    # Aplicar rango de período si no hay filtros de fecha específicos
+    # Definir start_date y end_date para las consultas de productos más vendidos y categorías
     if not has_filters:
-        reference_date = get_current_time().date()
+        reference_date = now.date()
         if period == 'today':
             start_date = datetime.combine(reference_date, datetime.min.time())
             end_date = datetime.combine(reference_date, datetime.max.time())
@@ -250,6 +251,25 @@ def sales_and_reports():
             start_date = datetime.combine(start_of_year, datetime.min.time())
             end_date = datetime.combine(end_of_year, datetime.max.time())
         base_query = base_query.filter(Order.updated_at.between(start_date, end_date))
+    else:
+        # Si hay filtros personalizados, usar el filtro de fecha si existe, o un rango amplio
+        if search_date_str:
+            try:
+                search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
+                start_date = datetime.combine(search_date, datetime.min.time())
+                end_date = datetime.combine(search_date, datetime.max.time())
+            except ValueError:
+                start_date = datetime(2000, 1, 1)
+                end_date = datetime(2100, 1, 1)
+        else:
+            # Si no hay fecha, pero hay filtro de día de semana, usar el año actual
+            if search_weekday:
+                start_date = datetime(now.year, 1, 1)
+                end_date = datetime(now.year, 12, 31, 23, 59, 59)
+            else:
+                # Rango amplio si no hay fecha ni día
+                start_date = datetime(2000, 1, 1)
+                end_date = datetime(2100, 1, 1)
 
     # --- Query para Estadísticas (solo ventas pagadas) --- #
     stats_query = base_query.filter(Order.status == OrderStatus.PAID)
