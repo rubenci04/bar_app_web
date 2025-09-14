@@ -36,7 +36,14 @@
                     </a>
                 </div>
                 <div class="hidden md:flex items-center space-x-4">
-                    {% if current_user.is_authenticated %}
+                    
+                    
+                    
+
+                    
+                        
+
+                {% if current_user.is_authenticated %}
                         <a href="{{ url_for('mozo.tables_view') }}" 
                            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
                            {% if request.endpoint == 'mozo.tables_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Mesas</a>
@@ -68,16 +75,8 @@
                             <i class="fa-solid fa-right-from-bracket mr-1"></i>Salir
                         </a>
                     {% endif %}
-                    
-                    
-
-                    
-                        
 
                 <button id="theme-toggle" type="button" title="Cambiar modo claro/oscuro" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <i id="theme-toggle-dark-icon" class="fa-solid fa-moon"></i>
-                    <i id="theme-toggle-light-icon" class="fa-solid fa-sun hidden"></i>
-                </button>
             </div>
 
             <div class="md:hidden flex items-center">

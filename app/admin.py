@@ -277,7 +277,7 @@ def sales_and_reports():
             porcentaje = (producto.total_quantity / total_items_vendidos) * 100
             ranking_productos.append({
                 'name': producto.name,
-                'quantity': producto.quantity,
+                'quantity': producto.total_quantity,
                 'percentage': round(porcentaje, 2)
             })
 
