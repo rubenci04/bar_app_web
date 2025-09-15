@@ -13,7 +13,6 @@
     body { font-family: 'Inter', sans-serif; }
 
     /* --- ESTILOS PARA TOAST --- */
-    /* --- AÑADIR ESTILOS PARA TOAST --- */
     .toast {
         opacity: 0;
         transform: translateX(100%);
@@ -22,6 +21,37 @@
     .toast.show {
         opacity: 1;
         transform: translateX(0);
+    }
+
+    /* --- ESTILOS PARA MENÚ MÓVIL --- */
+    #mobile-menu {
+        transition: max-height 0.3s ease-in-out;
+        overflow: hidden;
+    }
+
+    /* --- ESTILOS PARA BOTÓN DE TEMA --- */
+    #theme-toggle, #theme-toggle-mobile {
+        transition: all 0.3s ease;
+    }
+    #theme-toggle:hover, #theme-toggle-mobile:hover {
+        transform: scale(1.1);
+    }
+    .fa-sun, .fa-moon {
+        transition: transform 0.3s ease;
+    }
+    #theme-toggle:hover .fa-sun, 
+    #theme-toggle:hover .fa-moon,
+    #theme-toggle-mobile:hover .fa-sun,
+    #theme-toggle-mobile:hover .fa-moon {
+        transform: rotate(30deg);
+    }
+
+    /* --- ESTILOS PARA ANIMACIÓN DEL BOTÓN DE MENÚ --- */
+    #mobile-menu-button i {
+        transition: transform 0.3s ease;
+    }
+    #mobile-menu-button[aria-expanded="true"] i {
+        transform: rotate(180deg);
     }
     </style>
 </head>
@@ -76,26 +106,52 @@
                         </a>
                     {% endif %}
 
-                <button id="theme-toggle" type="button" title="Cambiar modo claro/oscuro" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-            </div>
-
-            <div class="md:hidden flex items-center">
-                <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">
-                    <span class="sr-only">Abrir menú principal</span>
-                    <i class="fa-solid fa-bars h-6 w-6"></i>
+                <button id="theme-toggle" type="button" title="Cambiar modo claro/oscuro" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                    <i class="fas fa-sun dark:hidden"></i>
+                    <i class="fas fa-moon hidden dark:inline"></i>
                 </button>
-            </div>
+                </div>
+
+                <div class="md:hidden flex items-center space-x-2">
+                    <button id="theme-toggle-mobile" type="button" title="Cambiar modo claro/oscuro" class="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fas fa-sun dark:hidden"></i>
+                        <i class="fas fa-moon hidden dark:inline"></i>
+                    </button>
+                    <button id="mobile-menu-button" aria-expanded="false" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">
+                        <span class="sr-only">Abrir menú principal</span>
+                        <i class="fa-solid fa-bars h-6 w-6"></i>
+                    </button>
+                </div>
         </div>
     </div>
 
-    <div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600" id="mobile-menu">
+    <div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 transition-all duration-300 ease-in-out overflow-hidden" style="max-height: 0" id="mobile-menu">
         <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('mozo.tables_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Mesas</a>
-                <a href="{{ url_for('mozo.takeaway_orders_view') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Para Llevar</a>
-                <a href="{{ url_for('admin.products') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Productos</a>
-                <a href="{{ url_for('admin.sales_and_reports') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Registro de Ventas</a>
-                <a href="{{ url_for('admin.manage_tables') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Gestionar Mesas</a>
+                <a href="{{ url_for('mozo.tables_view') }}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 {% if request.endpoint == 'mozo.tables_view' %}bg-orange-50 dark:bg-gray-700{% endif %}">
+                   <i class="fa-solid fa-table mr-2"></i>Mesas
+                </a>
+                <a href="{{ url_for('mozo.takeaway_orders_view') }}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 {% if request.endpoint == 'mozo.takeaway_orders_view' %}bg-orange-50 dark:bg-gray-700{% endif %}">
+                   <i class="fa-solid fa-bag-shopping mr-2"></i>Para Llevar
+                </a>
+                
+                {% if current_user.role == 'admin' %}
+                    <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                    
+                    <a href="{{ url_for('admin.products') }}" 
+                       class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.products' %}bg-gray-50 dark:bg-gray-700{% endif %}">
+                       <i class="fa-solid fa-box mr-2"></i>Productos
+                    </a>
+                    <a href="{{ url_for('admin.sales_and_reports') }}" 
+                       class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.sales_and_reports' %}bg-gray-50 dark:bg-gray-700{% endif %}">
+                       <i class="fa-solid fa-chart-line mr-2"></i>Registro de Ventas
+                    </a>
+                    <a href="{{ url_for('admin.manage_tables') }}" 
+                       class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.manage_tables' %}bg-gray-50 dark:bg-gray-700{% endif %}">
+                       <i class="fa-solid fa-grip-vertical mr-2"></i>Gestionar Mesas
+                    </a>
                 
                 {% if current_user.role == 'admin' %}
                     <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
