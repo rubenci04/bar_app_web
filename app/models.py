@@ -59,15 +59,33 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 class Product(db.Model):
+    __tablename__ = 'product'
+    
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
+    name = db.Column(db.String(100), unique=True, nullable=False, index=True)
     price = db.Column(db.Float, nullable=False)
-    type = db.Column(db.String(50), nullable=False)
+    type = db.Column(db.String(50), nullable=False, index=True)
     stock = db.Column(db.Integer, default=0)
     description = db.Column(db.String(300), nullable=True)
 
+    # Índice compuesto para optimizar las búsquedas por tipo y nombre
+    __table_args__ = (
+        db.Index('idx_product_type_name', 'type', 'name'),
+    )
+
     def __repr__(self):
         return f'<Product {self.name}>'
+        
+    def to_dict(self):
+        """Convierte el producto a un diccionario para serialización rápida"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'price': self.price,
+            'type': self.type,
+            'stock': self.stock,
+            'description': self.description
+        }
 
 class Table(db.Model):
     id = db.Column(db.Integer, primary_key=True)

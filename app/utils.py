@@ -1,9 +1,13 @@
 # Archivo: app/utils.py
 from functools import wraps
 from flask_login import current_user
-from flask import redirect, url_for, flash
+from flask import redirect, url_for, flash, current_app
 from datetime import datetime, date
 import pytz
+from sqlalchemy.exc import OperationalError, IntegrityError, SQLAlchemyError
+import time
+from . import db
+from .exceptions import ConnectionError, ValidationError, TransactionError
 
 def get_current_time():
     """Retorna la hora actual en UTC."""
@@ -46,3 +50,38 @@ def mozo_required(f):
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
+
+def retry_on_db_error(max_retries=3, initial_delay=0.1):
+    """Decorador para reintentar operaciones de base de datos con retraso exponencial.
+    
+    Args:
+        max_retries (int): Número máximo de reintentos antes de fallar
+        initial_delay (float): Retraso inicial en segundos antes del primer reintento
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            delay = initial_delay
+            
+            while True:
+                try:
+                    return f(*args, **kwargs)
+                except OperationalError as e:
+                    if retries >= max_retries:
+                        current_app.logger.error(f"Error de operación de BD después de {max_retries} intentos: {str(e)}")
+                        db.session.rollback()
+                        raise ConnectionError(f"Error de conexión a la base de datos: {str(e)}")
+                    retries += 1
+                    time.sleep(delay)
+                    delay *= 2  # Retraso exponencial
+                except IntegrityError as e:
+                    db.session.rollback()
+                    current_app.logger.error(f"Error de integridad en la BD: {str(e)}")
+                    raise ValidationError(f"Error de validación en la base de datos: {str(e)}")
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    current_app.logger.error(f"Error de SQLAlchemy: {str(e)}")
+                    raise TransactionError(f"Error en la transacción de base de datos: {str(e)}")
+        return wrapper
+    return decorator

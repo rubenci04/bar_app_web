@@ -14,6 +14,9 @@ migrate = Migrate()
 login_manager = LoginManager()
 csrf = CSRFProtect()
 
+from flask_caching import Cache
+cache = Cache()
+
 DB_NAME = "bar_app.db"
 
 # Archivo: app/__init__.py
@@ -34,8 +37,10 @@ def create_app():
     app.jinja_env.filters['localtime'] = localtime_filter
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
-
-    # ...el resto de tu configuración continúa...
+    
+    # Configuración del caché
+    app.config['CACHE_TYPE'] = os.environ.get('CACHE_TYPE', 'SimpleCache')
+    app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.environ.get('CACHE_TIMEOUT', 300))  # 5 minutos por defecto
     
     # Crear el directorio de instancia si no existe
     os.makedirs(app.instance_path, exist_ok=True)
@@ -54,6 +59,7 @@ def create_app():
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+    cache.init_app(app)
 
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Por favor, inicie sesión para acceder a esta página.'
