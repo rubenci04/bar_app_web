@@ -39,8 +39,18 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
     
     # Configuración del caché
-    app.config['CACHE_TYPE'] = os.environ.get('CACHE_TYPE', 'SimpleCache')
-    app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.environ.get('CACHE_TIMEOUT', 300))  # 5 minutos por defecto
+    if os.environ.get('RENDER'):
+        # En producción (Render), usar filesystem cache
+        cache_dir = os.path.join(app.instance_path, 'cache')
+        os.makedirs(cache_dir, exist_ok=True)
+        app.config['CACHE_TYPE'] = 'FileSystemCache'
+        app.config['CACHE_DIR'] = cache_dir
+        app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.environ.get('CACHE_TIMEOUT', 300))
+        app.config['CACHE_THRESHOLD'] = 1000  # Número máximo de elementos en caché
+    else:
+        # En desarrollo, usar SimpleCache
+        app.config['CACHE_TYPE'] = 'SimpleCache'
+        app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutos
     
     # Crear el directorio de instancia si no existe
     os.makedirs(app.instance_path, exist_ok=True)
