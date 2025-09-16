@@ -24,11 +24,11 @@ function setupMobileMenu() {
     const mobileMenu = document.getElementById('mobile-menu');
 
     if (menuButton && mobileMenu) {
-        menuButton.addEventListener('click', () => {
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evitar que el clic se propague al documento
             const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
             menuButton.setAttribute('aria-expanded', !isExpanded);
             
-            // Toggle la clase hidden y añadir transición suave
             if (isExpanded) {
                 mobileMenu.style.maxHeight = '0px';
                 setTimeout(() => {
@@ -39,11 +39,20 @@ function setupMobileMenu() {
                 mobileMenu.style.maxHeight = mobileMenu.scrollHeight + 'px';
             }
             
-            // Cambiar el ícono
             const icon = menuButton.querySelector('i');
             if (icon) {
                 icon.classList.toggle('fa-bars');
                 icon.classList.toggle('fa-times');
+            }
+        });
+
+        // Cerrar el menú si se hace clic fuera de él
+        document.addEventListener('click', (e) => {
+            if (!mobileMenu.contains(e.target) && !menuButton.contains(e.target)) {
+                const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
+                if (isExpanded) {
+                    menuButton.click();
+                }
             }
         });
     }

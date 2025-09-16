@@ -44,7 +44,18 @@ document.addEventListener('DOMContentLoaded', function() {
             body: formData
         })
         .then(response => response.json())
-        .then(handleApiResponse);
+        .then(data => {
+            if (data.success) {
+                updateOrderView(data.order_data);
+                showToast(data.message, 'success');
+            } else {
+                showToast(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error al añadir ítem:', error);
+            showToast('Error de red al añadir el producto.', 'danger');
+        });
     };
 
     // Función para quitar un ítem del pedido
