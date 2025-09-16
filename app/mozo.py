@@ -120,6 +120,10 @@ def add_item_to_order(order_id):
     order_item.calculate_subtotal()
     product.stock -= quantity
     
+    # Confirmar los cambios en la base de datos antes de calcular el total
+    db.session.commit()
+
+    # Ahora, con la sesión confirmada, calcular el total de forma segura
     order.calculate_total()
     db.session.commit()
     
