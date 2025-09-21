@@ -119,7 +119,8 @@ class Order(db.Model):
         return f'<Order {self.id}>'
 
 class OrderItem(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    __tablename__ = 'order_item'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)

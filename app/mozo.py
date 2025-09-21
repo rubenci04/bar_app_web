@@ -130,32 +130,42 @@ def add_item_to_order(order_id):
         return jsonify({'success': False, 'message': f'Stock insuficiente para {product.name}. Stock actual: {product.stock}.'}), 400
 
     try:
-        order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
-        if order_item:
-            order_item.quantity += quantity
-            order_item.calculate_subtotal()
-        else:
-            order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
-            db.session.add(order_item)
-        
-        product.stock -= quantity
+        # Usamos una transacción anidada para manejar la creación/actualización del item
+        with db.session.begin_nested():
+            # Primero obtenemos el máximo ID actual
+            max_id = db.session.query(db.func.max(OrderItem.id)).scalar() or 0
+            # Actualizamos la secuencia antes de crear cualquier nuevo registro
+            db.session.execute(db.text(f"SELECT setval('order_item_id_seq', {max_id + 1}, false)"))
+            
+            order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
+            if order_item:
+                order_item.quantity += quantity
+                order_item.calculate_subtotal()
+            else:
+                order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
+                db.session.add(order_item)
+            
+            product.stock -= quantity
+
+        # Si llegamos aquí, la transacción anidada fue exitosa
         order.calculate_total()
         db.session.commit()
 
-        item_data = {
-            'id': order_item.id,
-            'name': product.name,
-            'quantity': order_item.quantity,
-            'unit_price': order_item.unit_price,
-            'subtotal': order_item.subtotal,
-            'product_id': order_item.product_id
-        }
+        # Recuperar todos los items actualizados
+        items = [{
+            'id': item.id,
+            'name': item.display_name or item.product.name,
+            'quantity': item.quantity,
+            'unit_price': item.unit_price,
+            'subtotal': item.subtotal,
+            'product_id': item.product_id
+        } for item in order.items]
 
         return jsonify({
             'success': True,
             'message': f'{product.name} añadido correctamente.',
             'order_total': order.total_amount,
-            'item': item_data,
+            'items': items,
             'product_stock': product.stock
         })
     except Exception as e:

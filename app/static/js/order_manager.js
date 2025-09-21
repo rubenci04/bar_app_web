@@ -77,6 +77,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function renderAllItems(items) {
+        if (!orderItemsList) return;
+        
+        // Limpiar la lista actual
+        orderItemsList.innerHTML = '';
+        
+        // Renderizar todos los items
+        items.forEach(item => {
+            const itemElement = createItemElement(item);
+            orderItemsList.appendChild(itemElement);
+        });
+    }
+
     window.addItem = function(productId) {
         const formData = new FormData();
         formData.append('product_id', productId);
@@ -90,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                renderOrUpdateItem(data.item);
+                renderAllItems(data.items);
                 updateOrderTotal(data.order_total);
                 showToast(data.message, 'success');
             } else {
@@ -146,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    renderOrUpdateItem(data.item);
+                    renderAllItems(data.items);
                     updateOrderTotal(data.order_total);
                     const halfPizzaModal = document.getElementById('half-pizza-modal');
                     if (halfPizzaModal) halfPizzaModal.classList.add('hidden');
