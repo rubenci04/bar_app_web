@@ -38,15 +38,26 @@ def create_app():
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
     
-    # Configuración del caché
+    # Configuración de la base de datos
     if os.environ.get('RENDER'):
-        # En producción (Render), usar filesystem cache
+        # En producción (Render)
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        
+        # Configuración del caché en producción
         cache_dir = os.path.join(app.instance_path, 'cache')
         os.makedirs(cache_dir, exist_ok=True)
         app.config['CACHE_TYPE'] = 'FileSystemCache'
         app.config['CACHE_DIR'] = cache_dir
         app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.environ.get('CACHE_TIMEOUT', 300))
-        app.config['CACHE_THRESHOLD'] = 1000  # Número máximo de elementos en caché
+        app.config['CACHE_THRESHOLD'] = 1000
+    else:
+        # En desarrollo local
+        if not os.path.exists(app.instance_path):
+            os.makedirs(app.instance_path)
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        app.config['CACHE_TYPE'] = 'SimpleCache'
     else:
         # En desarrollo, usar SimpleCache
         app.config['CACHE_TYPE'] = 'SimpleCache'

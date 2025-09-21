@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: bar-app-web
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_APP
+        value: run.py
+      - key: FLASK_ENV
+        value: production
+      - key: SQLALCHEMY_DATABASE_URI
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+    autoDeploy: true
