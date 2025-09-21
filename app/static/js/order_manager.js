@@ -35,13 +35,17 @@ document.addEventListener('DOMContentLoaded', function() {
         itemElement.setAttribute('data-item-id', item.id);
         itemElement.setAttribute('data-product-id', item.product_id);
 
+        const unitPrice = parseFloat(item.unit_price) || 0;
+        const quantity = parseInt(item.quantity) || 0;
+        const subtotal = unitPrice * quantity;
+
         itemElement.innerHTML = `
             <div class="flex-grow">
                 <span class="font-medium">${item.name}</span>
                 <div class="text-sm text-gray-600">
-                    <span class="item-quantity transition-all duration-200">${item.quantity}</span>x 
-                    <span class="unit-price">${item.unit_price.toLocaleString()}</span> = 
-                    <span class="font-bold subtotal transition-all duration-200">${item.subtotal.toLocaleString()}</span>
+                    <span class="item-quantity transition-all duration-200">${quantity}</span>x 
+                    <span class="unit-price">$${unitPrice.toLocaleString()}</span> = 
+                    <span class="font-bold subtotal transition-all duration-200">$${subtotal.toLocaleString()}</span>
                 </div>
             </div>
             <button onclick="removeItem(${item.id}, '${item.name}')" 
@@ -50,16 +54,19 @@ document.addEventListener('DOMContentLoaded', function() {
             </button>
         `;
         
-        // Agregar efecto de aparición
-        requestAnimationFrame(() => {
-            itemElement.style.opacity = '0';
-            itemElement.style.transform = 'translateY(10px)';
+        // Solo aplicar el efecto de aparición si es un nuevo item
+        const isNewItem = !orderItemsList.querySelector(`[data-item-id="${item.id}"]`);
+        if (isNewItem) {
             requestAnimationFrame(() => {
-                itemElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                itemElement.style.opacity = '1';
-                itemElement.style.transform = 'translateY(0)';
+                itemElement.style.opacity = '0';
+                itemElement.style.transform = 'translateY(10px)';
+                requestAnimationFrame(() => {
+                    itemElement.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    itemElement.style.opacity = '1';
+                    itemElement.style.transform = 'translateY(0)';
+                });
             });
-        });
+        }
         
         return itemElement;
     }
@@ -108,21 +115,34 @@ document.addEventListener('DOMContentLoaded', function() {
     let pendingUpdates = new Set();
 
     function getProductInfo(productId) {
-        const productEl = document.querySelector(`button[onclick*="${productId}"]`);
+        // Buscar el elemento del producto que coincida exactamente con el ID
+        const productEl = document.querySelector(`button[onclick*="addItem(${productId})"]`);
         if (!productEl) return null;
         
         const nameEl = productEl.querySelector('.font-semibold');
-        const priceEl = productEl.querySelector('.text-gray-600');
+        const priceEl = productEl.querySelector('[data-price]');
         
+        if (!nameEl || !priceEl) return null;
+        
+        const price = parseFloat(priceEl.getAttribute('data-price'));
         return {
-            name: nameEl ? nameEl.textContent : 'Producto',
-            price: priceEl ? parseFloat(priceEl.textContent.replace(/[^\d.,]/g, '').replace(',', '.')) : 0
+            name: nameEl.textContent.trim(),
+            price: price || 0
         };
     }
 
     function optimisticAddItem(productId, quantity = 1) {
         const productInfo = getProductInfo(productId);
-        if (!productInfo) return null;
+        if (!productInfo) {
+            console.error('No se pudo obtener la información del producto:', productId);
+            return null;
+        }
+
+        // Validar que tenemos un precio válido
+        if (isNaN(productInfo.price) || productInfo.price <= 0) {
+            console.error('Precio inválido para el producto:', productId, productInfo.price);
+            return null;
+        }
 
         // Buscar si ya existe el item
         const existingItem = orderItemsList.querySelector(`[data-product-id="${productId}"]`);
