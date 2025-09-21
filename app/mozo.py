@@ -67,30 +67,44 @@ def table_detail_view(table_id):
 @mozo_bp.route('/table/<int:table_id>/start_order', methods=['POST'])
 @mozo_required
 def start_table_order(table_id):
-    table = Table.query.get_or_404(table_id)
-    if table.status == TableStatus.EMPTY:
-        # CÓDIGO NUEVO Y CORREGIDO
-        # Buscamos si hay pedidos viejos para esta mesa
+    try:
+        table = Table.query.get_or_404(table_id)
+        if table.status != TableStatus.EMPTY:
+            flash('La mesa ya se encuentra ocupada.', 'warning')
+            return redirect(url_for('mozo.table_detail_view', table_id=table.id))
+
+        # Primero, buscamos y eliminamos los pedidos antiguos en una transacción separada
         old_orders = Order.query.filter(
             Order.table_id == table.id,
             Order.status.in_([OrderStatus.ACTIVE, OrderStatus.PENDING, OrderStatus.PAID])
         ).all()
 
-        # Si encontramos pedidos viejos, los borramos uno por uno
-        # Esto permite que SQLAlchemy borre también sus ítems asociados (por la configuración de cascada)
         if old_orders:
-            for order in old_orders:
-                db.session.delete(order)
-            db.session.commit() # Hacemos un commit después de borrar todo
-        
-        new_order = Order(type='Mesa', table_id=table.id, status=OrderStatus.ACTIVE)
-        db.session.add(new_order)
-        table.status = TableStatus.OCCUPIED
-        db.session.commit()
-        flash('Nuevo pedido iniciado en la mesa.', 'success')
-    else:
-        flash('La mesa ya se encuentra ocupada.', 'warning')
-    return redirect(url_for('mozo.table_detail_view', table_id=table.id))
+            try:
+                for order in old_orders:
+                    db.session.delete(order)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                flash('Error al limpiar pedidos antiguos. Por favor, intente de nuevo.', 'danger')
+                return redirect(url_for('mozo.table_detail_view', table_id=table.id))
+
+        # Luego, creamos el nuevo pedido en una transacción separada
+        try:
+            new_order = Order(type='Mesa', table_id=table.id, status=OrderStatus.ACTIVE)
+            db.session.add(new_order)
+            table.status = TableStatus.OCCUPIED
+            db.session.commit()
+            flash('Nuevo pedido iniciado en la mesa.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Error al crear el nuevo pedido. Por favor, intente de nuevo.', 'danger')
+
+        return redirect(url_for('mozo.table_detail_view', table_id=table.id))
+
+    except Exception as e:
+        flash('Error inesperado. Por favor, intente de nuevo.', 'danger')
+        return redirect(url_for('mozo.tables_view'))
 
 @mozo_bp.route('/order/<int:order_id>/add_item', methods=['POST'])
 @mozo_required
@@ -272,15 +286,27 @@ def takeaway_orders_view():
 @mozo_required
 def new_takeaway_order():
     if request.method == 'POST':
-        customer_name = request.form.get('customer_name', '').strip()
-        if not customer_name:
-            flash('El nombre del cliente es obligatorio.', 'danger')
-            return redirect(url_for('mozo.new_takeaway_order'))
-        new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
-        db.session.add(new_order)
-        db.session.commit()
-        flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
-        return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
+        try:
+            customer_name = request.form.get('customer_name', '').strip()
+            if not customer_name:
+                flash('El nombre del cliente es obligatorio.', 'danger')
+                return redirect(url_for('mozo.new_takeaway_order'))
+
+            try:
+                new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
+                db.session.add(new_order)
+                db.session.commit()
+                flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
+                return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
+            except Exception as e:
+                db.session.rollback()
+                flash('Error al crear el pedido. Por favor, intente de nuevo.', 'danger')
+                return redirect(url_for('mozo.new_takeaway_order'))
+
+        except Exception as e:
+            flash('Error inesperado. Por favor, intente de nuevo.', 'danger')
+            return redirect(url_for('mozo.takeaway_orders_view'))
+
     return render_template('mozo/takeaway_form.html', action="Nuevo", title="Nuevo Pedido para Llevar")
 
 @mozo_bp.route('/takeaway/<int:order_id>', methods=['GET', 'POST'])
