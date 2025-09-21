@@ -71,6 +71,10 @@ def create_app():
     csrf.init_app(app)
     cache.init_app(app)
 
+    # Registrar comandos de utilidad para la base de datos
+    from .db_utils import register_commands
+    register_commands(app)
+
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Por favor, inicie sesión para acceder a esta página.'
     login_manager.login_message_category = 'info'

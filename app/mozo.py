@@ -89,15 +89,20 @@ def start_table_order(table_id):
                 flash('Error al limpiar pedidos antiguos. Por favor, intente de nuevo.', 'danger')
                 return redirect(url_for('mozo.table_detail_view', table_id=table.id))
 
-        # Luego, creamos el nuevo pedido en una transacción separada
+        # Luego, creamos el nuevo pedido usando la función segura
         try:
-            new_order = Order(type='Mesa', table_id=table.id, status=OrderStatus.ACTIVE)
-            db.session.add(new_order)
+            from .db_operations import create_order_safely
+            new_order = create_order_safely(
+                type='Mesa',
+                table_id=table.id,
+                status=OrderStatus.ACTIVE
+            )
             table.status = TableStatus.OCCUPIED
             db.session.commit()
             flash('Nuevo pedido iniciado en la mesa.', 'success')
         except Exception as e:
             db.session.rollback()
+            print(f"Error al crear pedido de mesa: {str(e)}")
             flash('Error al crear el nuevo pedido. Por favor, intente de nuevo.', 'danger')
 
         return redirect(url_for('mozo.table_detail_view', table_id=table.id))
@@ -310,22 +315,12 @@ def new_takeaway_order():
             return redirect(url_for('mozo.new_takeaway_order'))
 
         try:
-            # Primero, obtener el máximo ID existente
-            max_id = db.session.query(db.func.max(Order.id)).scalar() or 0
-            
-            # Crear el nuevo pedido con un ID mayor que el máximo existente
-            new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
-            db.session.add(new_order)
-            db.session.flush()  # Para obtener el ID del pedido
-            
-            # Si el ID asignado es menor o igual al máximo, ajustarlo manualmente
-            if new_order.id <= max_id:
-                db.session.rollback()
-                new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
-                db.session.execute(db.text(f"SELECT setval('order_id_seq', {max_id + 1}, false)"))
-                db.session.add(new_order)
-                db.session.flush()
-            
+            from .db_operations import create_order_safely
+            new_order = create_order_safely(
+                type='Para Llevar',
+                customer_name=customer_name,
+                status=OrderStatus.PENDING
+            )
             db.session.commit()
             flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
             return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
