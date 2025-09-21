@@ -153,37 +153,48 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('product_id', productId);
         formData.append('quantity', 1);
 
-        fetch(`/mozo/order/${orderId}/add_item`, { method: 'POST', body: formData })
+        fetch(`/mozo/order/${orderId}/add_item`, { 
+            method: 'POST', 
+            body: formData 
+        })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                addItemToDOM(data.item);
-                updateOrderTotal(data.order_total);
-                showJsMessage(data.message, 'success');
+                // Usar la función updateOrderView que maneja toda la actualización
+                updateOrderView(data.items, data.order_total);
+                showToast(data.message, 'success');
             } else {
-                showJsMessage(data.message, 'danger');
+                showToast(data.message, 'danger');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error al agregar el producto. Por favor, intente de nuevo.', 'danger');
         });
     };
 
-    window.removeItem = function(itemId, itemName, productId) {
-        if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
+    window.removeItem = function(itemId) {
         const formData = new FormData();
         formData.append('csrf_token', csrfToken);
         
-        fetch(`/mozo/order_item/${itemId}/remove`, { method: 'POST', body: formData })
+        fetch(`/mozo/order_item/${itemId}/remove`, { 
+            method: 'POST', 
+            body: formData 
+        })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                const itemRow = document.getElementById(`item-row-${itemId}`);
-                if (itemRow) itemRow.remove();
-                updateOrderTotal(data.order_total);
-                if (orderItemsList && orderItemsList.children.length === 0) {
-                     orderItemsList.innerHTML = '<p id="no-items-message" class="text-gray-400 dark:text-gray-500 py-4 text-center">No hay ítems en este pedido.</p>';
-                }
+                // Usar la misma función updateOrderView para mantener la consistencia
+                const items = data.items || [];
+                updateOrderView(items, data.order_total);
+                showToast(data.message, 'success');
             } else {
-                showJsMessage(data.message, 'danger');
+                showToast(data.message, 'danger');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error al eliminar el producto. Por favor, intente de nuevo.', 'danger');
         });
     };
 

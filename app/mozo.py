@@ -310,9 +310,22 @@ def new_takeaway_order():
             return redirect(url_for('mozo.new_takeaway_order'))
 
         try:
+            # Primero, obtener el máximo ID existente
+            max_id = db.session.query(db.func.max(Order.id)).scalar() or 0
+            
+            # Crear el nuevo pedido con un ID mayor que el máximo existente
             new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
             db.session.add(new_order)
-            db.session.flush()  # Para obtener el ID del pedido antes del commit
+            db.session.flush()  # Para obtener el ID del pedido
+            
+            # Si el ID asignado es menor o igual al máximo, ajustarlo manualmente
+            if new_order.id <= max_id:
+                db.session.rollback()
+                new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
+                db.session.execute(db.text(f"SELECT setval('order_id_seq', {max_id + 1}, false)"))
+                db.session.add(new_order)
+                db.session.flush()
+            
             db.session.commit()
             flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
             return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))

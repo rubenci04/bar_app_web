@@ -98,7 +98,8 @@ class Table(db.Model):
         return f'<Table {self.number}>'
 
 class Order(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    __tablename__ = 'order'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     type = db.Column(db.String(20), nullable=False) # Mesa, Para Llevar
     status = db.Column(db.String(20), nullable=False, default=OrderStatus.PENDING) # Pendiente, Activo, Pagado, Cancelado, Venta Anulada
     customer_name = db.Column(db.String(100), nullable=True)
