@@ -218,35 +218,56 @@ document.addEventListener('DOMContentLoaded', function() {
         // Optimistic UI update
         const itemToRemove = orderItemsList.querySelector(`[data-item-id="${itemId}"]`);
         if (itemToRemove) {
-            // Guardar el elemento y su posición para posible restauración
-            const nextSibling = itemToRemove.nextSibling;
-            const parent = itemToRemove.parentNode;
-            itemToRemove.classList.add('opacity-50');
-            
             const formData = new FormData();
             formData.append('csrf_token', csrfToken);
+
+            // Efecto de fade out antes de enviar la petición
+            itemToRemove.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+            itemToRemove.style.opacity = '0.5';
+            itemToRemove.style.transform = 'translateX(10px)';
 
             fetch(`/mozo/order_item/${itemId}/remove`, {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
-                    itemToRemove.remove();
-                    updateOrderTotal(data.order_total);
+                    // Efecto de fade out completo antes de remover
+                    itemToRemove.style.opacity = '0';
+                    itemToRemove.style.transform = 'translateX(20px)';
+                    
+                    // Eliminar el elemento después de la animación
+                    setTimeout(() => {
+                        itemToRemove.remove();
+                        
+                        // Actualizar el total y mensaje de "no hay items" si es necesario
+                        updateOrderTotal(data.order_total);
+                        const noItemsMessage = document.getElementById('no-items-message');
+                        if (noItemsMessage && orderItemsList.children.length === 0) {
+                            noItemsMessage.classList.remove('hidden');
+                        }
+                    }, 200);
+
                     showToast(data.message, 'success');
                 } else {
                     // Restaurar el item si falla
-                    itemToRemove.classList.remove('opacity-50');
-                    showToast(data.message, 'danger');
+                    itemToRemove.style.opacity = '1';
+                    itemToRemove.style.transform = 'translateX(0)';
+                    showToast(data.message || 'Error al eliminar el item', 'danger');
                 }
             })
             .catch(error => {
-                // Restaurar el item en caso de error
-                itemToRemove.classList.remove('opacity-50');
                 console.error('Error al eliminar ítem:', error);
-                showToast('Error de red al eliminar el producto.', 'danger');
+                // Restaurar el item en caso de error
+                itemToRemove.style.opacity = '1';
+                itemToRemove.style.transform = 'translateX(0)';
+                showToast('Error al eliminar el producto. Por favor, intente de nuevo.', 'danger');
             });
         }
     };

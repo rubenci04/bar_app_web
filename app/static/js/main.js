@@ -63,15 +63,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar tema
     initTheme();
     
-    // Configurar botones de tema
+    // Configurar botón de tema
     const themeToggle = document.getElementById('theme-toggle');
-    const themeToggleMobile = document.getElementById('theme-toggle-mobile');
-    
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleDarkMode);
-    }
-    if (themeToggleMobile) {
-        themeToggleMobile.addEventListener('click', toggleDarkMode);
     }
     
     // Configurar menú móvil
