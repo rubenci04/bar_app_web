@@ -1,0 +1,20 @@
+# Environments
+venv/
+.venv
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Database files
+*.db
+*.sqlite3
+instance/
+your_database_name.db
+
+# Node dependencies
+node_modules/
+
+# IDE settings
+.vscode/
