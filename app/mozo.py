@@ -129,37 +129,33 @@ def add_item_to_order(order_id):
     if product.stock < quantity:
         return jsonify({'success': False, 'message': f'Stock insuficiente para {product.name}. Stock actual: {product.stock}.'}), 400
 
-    order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
-    if order_item:
-        order_item.quantity += quantity
-    else:
-        order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
-        db.session.add(order_item)
-    
     try:
-        order_item.calculate_subtotal()
+        order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
+        if order_item:
+            order_item.quantity += quantity
+            order_item.calculate_subtotal()
+        else:
+            order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
+            db.session.add(order_item)
+        
         product.stock -= quantity
-        db.session.commit()
-
-        # Recuperar todos los items del pedido para enviarlos al frontend
-        order_items = [{
-            'id': item.id,
-            'name': item.product.name if not item.display_name else item.display_name,
-            'quantity': item.quantity,
-            'unit_price': item.unit_price,
-            'subtotal': item.subtotal,
-            'product_id': item.product_id
-        } for item in order.items]
-
-        # Calcular el total y guardarlo
         order.calculate_total()
         db.session.commit()
+
+        item_data = {
+            'id': order_item.id,
+            'name': product.name,
+            'quantity': order_item.quantity,
+            'unit_price': order_item.unit_price,
+            'subtotal': order_item.subtotal,
+            'product_id': order_item.product_id
+        }
 
         return jsonify({
             'success': True,
             'message': f'{product.name} añadido correctamente.',
             'order_total': order.total_amount,
-            'items': order_items,  # Lista completa de items
+            'item': item_data,
             'product_stock': product.stock
         })
     except Exception as e:

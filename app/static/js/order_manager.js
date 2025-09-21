@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfTokenEl = document.getElementById('csrf_token_js');
     const orderIdEl = document.getElementById('order_id_js');
 
-    // Si no hay elementos de orden en la página, no ejecuta nada.
     if (!csrfTokenEl || !orderIdEl) {
         return;
     }
@@ -13,8 +12,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const noItemsMessage = document.getElementById('no-items-message');
     const orderTotalElement = document.getElementById('order-total');
     const paymentButton = document.getElementById('open-payment-modal-btn');
+    const searchInput = document.getElementById('product-search-input');
 
-    // --- Gestión de Modales (Pago y Pizza Mitad/Mitad) ---
     function setupModal(modalId, openBtnId, closeBtnId) {
         const modal = document.getElementById(modalId);
         const openBtn = document.getElementById(openBtnId);
@@ -30,56 +29,51 @@ document.addEventListener('DOMContentLoaded', function() {
     setupModal('payment-modal', 'open-payment-modal-btn', 'close-payment-modal-btn');
     setupModal('half-pizza-modal', 'open-half-pizza-modal-btn', 'close-half-pizza-modal-btn');
 
-    // --- Funciones para interactuar con la API del Backend ---
+    function createItemElement(item) {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'flex justify-between items-center p-2 border-b';
+        itemElement.setAttribute('data-item-id', item.id);
+        itemElement.setAttribute('data-product-id', item.product_id);
 
-    // Función para añadir un producto normal
-    // Función para actualizar la vista del pedido
-    function updateOrderView(items, total) {
+        itemElement.innerHTML = `
+            <div class="flex-grow">
+                <span class="font-medium">${item.name}</span>
+                <div class="text-sm text-gray-600">
+                    <span class="item-quantity">${item.quantity}</span>x ${item.unit_price.toLocaleString()} = <span class="font-bold">${item.subtotal.toLocaleString()}</span>
+                </div>
+            </div>
+            <button onclick="removeItem(${item.id}, '${item.name}')" class="text-red-500 hover:text-red-700 ml-4 p-1">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        return itemElement;
+    }
+
+    function renderOrUpdateItem(item) {
         if (!orderItemsList) return;
+        let existingItemEl = orderItemsList.querySelector(`[data-item-id="${item.id}"]`);
 
-        // Limpiar la lista actual
-        orderItemsList.innerHTML = '';
-        
-        if (items && items.length > 0) {
-            // Ocultar el mensaje de "no hay items"
-            if (noItemsMessage) noItemsMessage.classList.add('hidden');
-            
-            // Agregar cada item a la lista
-            items.forEach(item => {
-                const itemElement = document.createElement('div');
-                itemElement.className = 'flex justify-between items-center p-2 border-b';
-                itemElement.innerHTML = `
-                    <div class="flex-grow">
-                        <span class="font-medium">${item.name}</span>
-                        <div class="text-sm">
-                            ${item.quantity}x $${item.unit_price.toLocaleString()} = $${item.subtotal.toLocaleString()}
-                        </div>
-                    </div>
-                    <button onclick="removeItem(${item.id})" class="text-red-600 hover:text-red-800">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                orderItemsList.appendChild(itemElement);
-            });
+        if (existingItemEl) {
+            existingItemEl.querySelector('.item-quantity').textContent = item.quantity;
+            existingItemEl.querySelector('.font-bold').textContent = `${item.subtotal.toLocaleString()}`;
         } else {
-            // Mostrar el mensaje de "no hay items"
-            if (noItemsMessage) noItemsMessage.classList.remove('hidden');
+            const newItemEl = createItemElement(item);
+            orderItemsList.appendChild(newItemEl);
         }
+    }
 
-        // Actualizar el total
+    function updateOrderTotal(total) {
         if (orderTotalElement) {
             orderTotalElement.textContent = total.toLocaleString();
         }
-
-        // Habilitar/deshabilitar el botón de pago según si hay items o no
+        const hasItems = total > 0;
+        if (noItemsMessage) {
+            noItemsMessage.classList.toggle('hidden', hasItems);
+        }
         if (paymentButton) {
-            if (items && items.length > 0) {
-                paymentButton.disabled = false;
-                paymentButton.classList.remove('opacity-50', 'cursor-not-allowed');
-            } else {
-                paymentButton.disabled = true;
-                paymentButton.classList.add('opacity-50', 'cursor-not-allowed');
-            }
+            paymentButton.disabled = !hasItems;
+            paymentButton.classList.toggle('opacity-50', !hasItems);
+            paymentButton.classList.toggle('cursor-not-allowed', !hasItems);
         }
     }
 
@@ -96,7 +90,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                updateOrderView(data.items, data.order_total);
+                renderOrUpdateItem(data.item);
+                updateOrderTotal(data.order_total);
                 showToast(data.message, 'success');
             } else {
                 showToast(data.message, 'danger');
@@ -108,7 +103,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // Función para quitar un ítem del pedido
     window.removeItem = function(itemId, itemName) {
         if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
 
@@ -120,10 +114,24 @@ document.addEventListener('DOMContentLoaded', function() {
             body: formData
         })
         .then(response => response.json())
-        .then(handleApiResponse);
+        .then(data => {
+            if (data.success) {
+                const itemToRemove = orderItemsList.querySelector(`[data-item-id="${data.removed_item_id}"]`);
+                if (itemToRemove) {
+                    itemToRemove.remove();
+                }
+                updateOrderTotal(data.order_total);
+                showToast(data.message, 'success');
+            } else {
+                showToast(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error al eliminar ítem:', error);
+            showToast('Error de red al eliminar el producto.', 'danger');
+        });
     };
 
-    // Listener para el formulario de Pizza Mitad/Mitad
     const halfPizzaForm = document.getElementById('half-pizza-form');
     if (halfPizzaForm) {
         halfPizzaForm.addEventListener('submit', function(e) {
@@ -138,65 +146,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    renderOrUpdateItem(data.item);
+                    updateOrderTotal(data.order_total);
                     const halfPizzaModal = document.getElementById('half-pizza-modal');
                     if (halfPizzaModal) halfPizzaModal.classList.add('hidden');
                     this.reset();
+                    showToast(data.message, 'success');
+                } else {
+                    showToast(data.message, 'danger');
                 }
-                handleApiResponse(data);
             });
         });
     }
-    
-    window.addItem = function(productId) {
-        const formData = new FormData();
-        formData.append('csrf_token', csrfToken);
-        formData.append('product_id', productId);
-        formData.append('quantity', 1);
-
-        fetch(`/mozo/order/${orderId}/add_item`, { 
-            method: 'POST', 
-            body: formData 
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // Usar la función updateOrderView que maneja toda la actualización
-                updateOrderView(data.items, data.order_total);
-                showToast(data.message, 'success');
-            } else {
-                showToast(data.message, 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error al agregar el producto. Por favor, intente de nuevo.', 'danger');
-        });
-    };
-
-    window.removeItem = function(itemId) {
-        const formData = new FormData();
-        formData.append('csrf_token', csrfToken);
-        
-        fetch(`/mozo/order_item/${itemId}/remove`, { 
-            method: 'POST', 
-            body: formData 
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // Usar la misma función updateOrderView para mantener la consistencia
-                const items = data.items || [];
-                updateOrderView(items, data.order_total);
-                showToast(data.message, 'success');
-            } else {
-                showToast(data.message, 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error al eliminar el producto. Por favor, intente de nuevo.', 'danger');
-        });
-    };
 
     const categoryButtons = document.querySelectorAll('.category-btn');
     const productLists = document.querySelectorAll('.product-list');
