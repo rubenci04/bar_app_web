@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function createItemElement(item) {
         const itemElement = document.createElement('div');
-        itemElement.className = 'flex justify-between items-center p-2 border-b';
+        itemElement.className = 'flex justify-between items-center p-2 border-b transition-all duration-200';
         itemElement.setAttribute('data-item-id', item.id);
         itemElement.setAttribute('data-product-id', item.product_id);
 
@@ -39,13 +39,28 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="flex-grow">
                 <span class="font-medium">${item.name}</span>
                 <div class="text-sm text-gray-600">
-                    <span class="item-quantity">${item.quantity}</span>x ${item.unit_price.toLocaleString()} = <span class="font-bold">${item.subtotal.toLocaleString()}</span>
+                    <span class="item-quantity transition-all duration-200">${item.quantity}</span>x 
+                    <span class="unit-price">${item.unit_price.toLocaleString()}</span> = 
+                    <span class="font-bold subtotal transition-all duration-200">${item.subtotal.toLocaleString()}</span>
                 </div>
             </div>
-            <button onclick="removeItem(${item.id}, '${item.name}')" class="text-red-500 hover:text-red-700 ml-4 p-1">
+            <button onclick="removeItem(${item.id}, '${item.name}')" 
+                    class="text-red-500 hover:text-red-700 ml-4 p-1 transition-colors duration-200 transform hover:scale-110">
                 <i class="fas fa-times"></i>
             </button>
         `;
+        
+        // Agregar efecto de aparición
+        requestAnimationFrame(() => {
+            itemElement.style.opacity = '0';
+            itemElement.style.transform = 'translateY(10px)';
+            requestAnimationFrame(() => {
+                itemElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                itemElement.style.opacity = '1';
+                itemElement.style.transform = 'translateY(0)';
+            });
+        });
+        
         return itemElement;
     }
 
@@ -90,7 +105,61 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    let pendingUpdates = new Set();
+
+    function getProductInfo(productId) {
+        const productEl = document.querySelector(`button[onclick*="${productId}"]`);
+        if (!productEl) return null;
+        
+        const nameEl = productEl.querySelector('.font-semibold');
+        const priceEl = productEl.querySelector('.text-gray-600');
+        
+        return {
+            name: nameEl ? nameEl.textContent : 'Producto',
+            price: priceEl ? parseFloat(priceEl.textContent.replace(/[^\d.,]/g, '').replace(',', '.')) : 0
+        };
+    }
+
+    function optimisticAddItem(productId, quantity = 1) {
+        const productInfo = getProductInfo(productId);
+        if (!productInfo) return null;
+
+        // Buscar si ya existe el item
+        const existingItem = orderItemsList.querySelector(`[data-product-id="${productId}"]`);
+        const newQuantity = existingItem ? 
+            parseInt(existingItem.querySelector('.item-quantity').textContent) + quantity : 
+            quantity;
+
+        const optimisticItem = {
+            id: Date.now(), // ID temporal
+            name: productInfo.name,
+            quantity: newQuantity,
+            unit_price: productInfo.price,
+            subtotal: productInfo.price * newQuantity,
+            product_id: productId
+        };
+
+        return optimisticItem;
+    }
+
     window.addItem = function(productId) {
+        if (pendingUpdates.has(productId)) return;
+        
+        // Actualización optimista de la UI
+        const optimisticItem = optimisticAddItem(productId);
+        if (optimisticItem) {
+            const existingItem = orderItemsList.querySelector(`[data-product-id="${productId}"]`);
+            if (existingItem) {
+                existingItem.querySelector('.item-quantity').textContent = optimisticItem.quantity;
+                existingItem.querySelector('.font-bold').textContent = optimisticItem.subtotal.toLocaleString();
+            } else {
+                const newItemEl = createItemElement(optimisticItem);
+                newItemEl.classList.add('opacity-50'); // Indicador visual de pendiente
+                orderItemsList.appendChild(newItemEl);
+            }
+        }
+
+        pendingUpdates.add(productId);
         const formData = new FormData();
         formData.append('product_id', productId);
         formData.append('quantity', 1);
@@ -102,15 +171,22 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            pendingUpdates.delete(productId);
             if (data.success) {
                 renderAllItems(data.items);
                 updateOrderTotal(data.order_total);
                 showToast(data.message, 'success');
             } else {
+                // Revertir cambios optimistas
+                const itemToRemove = orderItemsList.querySelector(`[data-product-id="${productId}"]`);
+                if (itemToRemove && itemToRemove.classList.contains('opacity-50')) {
+                    itemToRemove.remove();
+                }
                 showToast(data.message, 'danger');
             }
         })
         .catch(error => {
+            pendingUpdates.delete(productId);
             console.error('Error al añadir ítem:', error);
             showToast('Error de red al añadir el producto.', 'danger');
         });
@@ -119,30 +195,40 @@ document.addEventListener('DOMContentLoaded', function() {
     window.removeItem = function(itemId, itemName) {
         if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
 
-        const formData = new FormData();
-        formData.append('csrf_token', csrfToken);
+        // Optimistic UI update
+        const itemToRemove = orderItemsList.querySelector(`[data-item-id="${itemId}"]`);
+        if (itemToRemove) {
+            // Guardar el elemento y su posición para posible restauración
+            const nextSibling = itemToRemove.nextSibling;
+            const parent = itemToRemove.parentNode;
+            itemToRemove.classList.add('opacity-50');
+            
+            const formData = new FormData();
+            formData.append('csrf_token', csrfToken);
 
-        fetch(`/mozo/order_item/${itemId}/remove`, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const itemToRemove = orderItemsList.querySelector(`[data-item-id="${data.removed_item_id}"]`);
-                if (itemToRemove) {
+            fetch(`/mozo/order_item/${itemId}/remove`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
                     itemToRemove.remove();
+                    updateOrderTotal(data.order_total);
+                    showToast(data.message, 'success');
+                } else {
+                    // Restaurar el item si falla
+                    itemToRemove.classList.remove('opacity-50');
+                    showToast(data.message, 'danger');
                 }
-                updateOrderTotal(data.order_total);
-                showToast(data.message, 'success');
-            } else {
-                showToast(data.message, 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error al eliminar ítem:', error);
-            showToast('Error de red al eliminar el producto.', 'danger');
-        });
+            })
+            .catch(error => {
+                // Restaurar el item en caso de error
+                itemToRemove.classList.remove('opacity-50');
+                console.error('Error al eliminar ítem:', error);
+                showToast('Error de red al eliminar el producto.', 'danger');
+            });
+        }
     };
 
     const halfPizzaForm = document.getElementById('half-pizza-form');
