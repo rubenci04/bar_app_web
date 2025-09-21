@@ -33,6 +33,56 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Funciones para interactuar con la API del Backend ---
 
     // Función para añadir un producto normal
+    // Función para actualizar la vista del pedido
+    function updateOrderView(items, total) {
+        if (!orderItemsList) return;
+
+        // Limpiar la lista actual
+        orderItemsList.innerHTML = '';
+        
+        if (items && items.length > 0) {
+            // Ocultar el mensaje de "no hay items"
+            if (noItemsMessage) noItemsMessage.classList.add('hidden');
+            
+            // Agregar cada item a la lista
+            items.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'flex justify-between items-center p-2 border-b';
+                itemElement.innerHTML = `
+                    <div class="flex-grow">
+                        <span class="font-medium">${item.name}</span>
+                        <div class="text-sm">
+                            ${item.quantity}x $${item.unit_price.toLocaleString()} = $${item.subtotal.toLocaleString()}
+                        </div>
+                    </div>
+                    <button onclick="removeItem(${item.id})" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                orderItemsList.appendChild(itemElement);
+            });
+        } else {
+            // Mostrar el mensaje de "no hay items"
+            if (noItemsMessage) noItemsMessage.classList.remove('hidden');
+        }
+
+        // Actualizar el total
+        if (orderTotalElement) {
+            orderTotalElement.textContent = total.toLocaleString();
+        }
+
+        // Habilitar/deshabilitar el botón de pago según si hay items o no
+        if (paymentButton) {
+            if (items && items.length > 0) {
+                paymentButton.disabled = false;
+                paymentButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                paymentButton.disabled = true;
+                paymentButton.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    }
+
     window.addItem = function(productId) {
         const formData = new FormData();
         formData.append('product_id', productId);
@@ -46,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                updateOrderView(data.order_data);
+                updateOrderView(data.items, data.order_total);
                 showToast(data.message, 'success');
             } else {
                 showToast(data.message, 'danger');

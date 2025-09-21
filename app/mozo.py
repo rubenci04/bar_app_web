@@ -131,21 +131,39 @@ def add_item_to_order(order_id):
         order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
         db.session.add(order_item)
     
-    order_item.calculate_subtotal()
-    product.stock -= quantity
-    
-    # Confirmar los cambios en la base de datos antes de calcular el total
-    db.session.commit()
+    try:
+        order_item.calculate_subtotal()
+        product.stock -= quantity
+        db.session.commit()
 
-    # Ahora, con la sesión confirmada, calcular el total de forma segura
-    order.calculate_total()
-    db.session.commit()
-    
-    return jsonify({
-        'success': True, 'message': f'{product.name} añadido correctamente.', 'order_total': order.total_amount,
-        'item': { 'id': order_item.id, 'name': product.name, 'quantity': order_item.quantity, 'unit_price': order_item.unit_price, 'subtotal': order_item.subtotal, 'product_id': product.id },
-        'product_stock': product.stock
-    })
+        # Recuperar todos los items del pedido para enviarlos al frontend
+        order_items = [{
+            'id': item.id,
+            'name': item.product.name if not item.display_name else item.display_name,
+            'quantity': item.quantity,
+            'unit_price': item.unit_price,
+            'subtotal': item.subtotal,
+            'product_id': item.product_id
+        } for item in order.items]
+
+        # Calcular el total y guardarlo
+        order.calculate_total()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'{product.name} añadido correctamente.',
+            'order_total': order.total_amount,
+            'items': order_items,  # Lista completa de items
+            'product_stock': product.stock
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al agregar item al pedido: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Error al agregar el producto. Por favor, intente de nuevo.'
+        }), 500
 
 @mozo_bp.route('/order/<int:order_id>/add_half_pizza', methods=['POST'])
 @mozo_required
@@ -286,26 +304,23 @@ def takeaway_orders_view():
 @mozo_required
 def new_takeaway_order():
     if request.method == 'POST':
+        customer_name = request.form.get('customer_name', '').strip()
+        if not customer_name:
+            flash('El nombre del cliente es obligatorio.', 'danger')
+            return redirect(url_for('mozo.new_takeaway_order'))
+
         try:
-            customer_name = request.form.get('customer_name', '').strip()
-            if not customer_name:
-                flash('El nombre del cliente es obligatorio.', 'danger')
-                return redirect(url_for('mozo.new_takeaway_order'))
-
-            try:
-                new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
-                db.session.add(new_order)
-                db.session.commit()
-                flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
-                return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
-            except Exception as e:
-                db.session.rollback()
-                flash('Error al crear el pedido. Por favor, intente de nuevo.', 'danger')
-                return redirect(url_for('mozo.new_takeaway_order'))
-
+            new_order = Order(type='Para Llevar', customer_name=customer_name, status=OrderStatus.PENDING)
+            db.session.add(new_order)
+            db.session.flush()  # Para obtener el ID del pedido antes del commit
+            db.session.commit()
+            flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
+            return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
         except Exception as e:
-            flash('Error inesperado. Por favor, intente de nuevo.', 'danger')
-            return redirect(url_for('mozo.takeaway_orders_view'))
+            db.session.rollback()
+            print(f"Error al crear pedido para llevar: {str(e)}")
+            flash('Error al crear el pedido. Por favor, intente de nuevo.', 'danger')
+            return redirect(url_for('mozo.new_takeaway_order'))
 
     return render_template('mozo/takeaway_form.html', action="Nuevo", title="Nuevo Pedido para Llevar")
 
