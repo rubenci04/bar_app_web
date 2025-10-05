@@ -1,57 +1,140 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
     <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Pedidos para Llevar</h1>
     <a href="{{ url_for('mozo.new_takeaway_order') }}" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
         <i class="fa-solid fa-plus mr-2"></i>Nuevo Pedido
     </a>
 </div>
-<div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg overflow-x-auto border border-gray-200 dark:border-slate-700">
-    <table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-        <thead class="bg-gray-50 dark:bg-slate-700/50">
-            <tr>
-                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">ID</th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Cliente</th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Fecha</th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Estado</th>
-                <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Total</th>
-                <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Acciones</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
-            {% for order in orders %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100">#{{ order.id }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-slate-300">{{ order.customer_name }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-slate-400">{{ order.created_at|localtime('%Y-%m-%d %H:%M') }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
-                        {% if order.status == 'Pendiente' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300
-                        {% elif order.status == 'Pagado' %}bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300
-                        {% elif order.status == 'Cancelado' or order.status == 'Venta Anulada' %}bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300
-                        {% else %}bg-gray-100 text-gray-800 dark:bg-slate-600 dark:text-slate-300{% endif %}">
-                        {{ order.status }}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100 text-right">${{ "%.2f"|format(order.total_amount if order.total_amount is not none else 0.0) }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                    <a href="{{ url_for('mozo.takeaway_order_detail', order_id=order.id) }}" class="font-semibold text-blue-600 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors mr-4">Ver/Editar</a>
-                    {% if order.status in ['Pagado', 'Cancelado', 'Venta Anulada'] %}
-                    <form action="{{ url_for('mozo.delete_takeaway_order', order_id=order.id) }}" method="POST" class="inline-block delete-takeaway-order-form">
-{% block scripts %}
-    {{ super() }}
-    <script src="{{ url_for('static', filename='js/takeaway_orders.js') }}"></script>
+
+<form id="bulk-action-form" method="POST" action="{{ url_for('mozo.takeaway_bulk_action') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" id="bulk-action-input">
+
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg overflow-x-auto border border-gray-200 dark:border-slate-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+            <thead class="bg-gray-50 dark:bg-slate-700/50">
+                <tr>
+                    <th class="px-4 py-3 text-center">
+                        <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Cliente</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Estado</th>
+                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Total</th>
+                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
+                {% for order in orders %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                    <td class="px-4 py-4 text-center">
+                        <input type="checkbox" name="order_ids" value="{{ order.id }}" class="order-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100">#{{ order.id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-slate-300">{{ order.customer_name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-slate-400">{{ order.created_at|localtime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
+                            {% if order.status == 'Pendiente' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300
+                            {% elif order.status == 'Pagado' %}bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300
+                            {% else %}bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300{% endif %}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100 text-right">${{ "%.2f"|format(order.total_amount if order.total_amount is not none else 0.0) }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                        <a href="{{ url_for('mozo.takeaway_order_detail', order_id=order.id) }}" class="font-semibold text-blue-600 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors mr-4">Ver/Editar</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="px-6 py-10 text-center text-gray-400 dark:text-slate-500">No hay pedidos pendientes para llevar.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="bulk-actions-footer" class="hidden mt-4 flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-100 dark:bg-slate-900 rounded-lg">
+        <p class="text-sm font-semibold text-gray-700 dark:text-slate-200">
+            <span id="selected-count">0</span> pedidos seleccionados.
+        </p>
+        <div class="flex gap-3">
+            <button type="button" data-action="mark_paid" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors text-sm">
+                <i class="fa-solid fa-check-double mr-2"></i>Marcar como Pagados
+            </button>
+            <button type="button" data-action="cancel" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors text-sm">
+                <i class="fa-solid fa-times mr-2"></i>Cancelar Seleccionados
+            </button>
+        </div>
+    </div>
+</form>
+
 {% endblock %}
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="font-semibold text-red-600 dark:text-red-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">Eliminar</button>
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 dark:text-slate-500">No hay pedidos para llevar.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Aquí selecciono todos los elementos que necesito del DOM.
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const orderCheckboxes = document.querySelectorAll('.order-checkbox');
+    const bulkActionsFooter = document.getElementById('bulk-actions-footer');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const bulkActionButtons = document.querySelectorAll('.bulk-action-btn');
+    const bulkActionInput = document.getElementById('bulk-action-input');
+    const bulkActionForm = document.getElementById('bulk-action-form');
+
+    function updateFooterVisibility() {
+        // Esta función muestra u oculta el pie de página con los botones de acción.
+        const checkedCount = document.querySelectorAll('.order-checkbox:checked').length;
+        selectedCountSpan.textContent = checkedCount;
+        if (checkedCount > 0) {
+            bulkActionsFooter.classList.remove('hidden');
+        } else {
+            bulkActionsFooter.classList.add('hidden');
+        }
+    }
+
+    if (selectAllCheckbox) {
+        // Lógica para el checkbox 'seleccionar todo'.
+        selectAllCheckbox.addEventListener('change', function() {
+            orderCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateFooterVisibility();
+        });
+    }
+
+    orderCheckboxes.forEach(checkbox => {
+        // Lógica para los checkboxes individuales.
+        checkbox.addEventListener('change', function() {
+            if (!this.checked) {
+                selectAllCheckbox.checked = false;
+            } else if (document.querySelectorAll('.order-checkbox:not(:checked)').length === 0) {
+                selectAllCheckbox.checked = true;
+            }
+            updateFooterVisibility();
+        });
+    });
+
+    bulkActionButtons.forEach(button => {
+        // Lógica para los botones de acción (pagar o cancelar).
+        button.addEventListener('click', function() {
+            const action = this.dataset.action;
+            let confirmMessage = '';
+            if (action === 'mark_paid') {
+                confirmMessage = '¿Seguro que quieres marcar los pedidos seleccionados como PAGADOS?';
+            } else if (action === 'cancel') {
+                confirmMessage = '¿Seguro que quieres CANCELAR los pedidos seleccionados? Esta acción no se puede deshacer.';
+            }
+
+            if (confirm(confirmMessage)) {
+                bulkActionInput.value = action;
+                bulkActionForm.submit();
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

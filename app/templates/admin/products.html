@@ -34,7 +34,6 @@
 </div>
 <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto border border-gray-200 dark:border-gray-700">
     <table id="products-table" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-
         <thead class="bg-gray-50 dark:bg-gray-700/50">
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nombre</th>
@@ -55,7 +54,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-300 text-right">{{ product.stock }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center space-x-4">
                     <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="font-semibold text-blue-600 hover:text-blue-500">Editar</a>
-                    <form action="{{ url_for('admin.delete_product', product_id=product.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar {{ product.name }}?');">
+                    <form action="{{ url_for('admin.delete_product', product_id=product.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar {{ product.name }}? Esta acción no se puede deshacer.');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="font-semibold text-red-600 hover:text-red-500">Eliminar</button>
                     </form>
@@ -86,18 +85,4 @@
     </nav>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const categorySelect = document.getElementById('search_category');
-    if (categorySelect) {
-        categorySelect.addEventListener('change', function() {
-            document.getElementById('filter-form').submit();
-        });
-    }
-});
-</script>
 {% endblock %}

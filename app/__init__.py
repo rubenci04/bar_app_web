@@ -89,6 +89,16 @@ def create_app():
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Por favor, inicie sesión para acceder a esta página.'
     login_manager.login_message_category = 'info'
+        # Inicialización de extensiones
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    csrf.init_app(app)
+    # Me aseguro de que esta línea esté presente para activar el caché en toda la app.
+    cache.init_app(app)
+
+    # Registrar comandos de utilidad para la base de datos
+    from .db_utils import register_commands
 
     @app.context_processor
     def utility_processor():

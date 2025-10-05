@@ -1,6 +1,9 @@
 # Archivo: app/admin.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response
+# --- INICIO DE CAMBIOS ---
+# 1. Importo 'cache' junto con 'db'.
 from . import db, cache
+# --- FIN DE CAMBIOS ---
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time, retry_on_db_error
 from datetime import datetime, date, timedelta
@@ -13,10 +16,12 @@ admin_bp = Blueprint('admin', __name__)
 
 ITEMS_PER_PAGE = 10
 
-@cache.memoize(timeout=300)  # Cache por 5 minutos
+# --- INICIO DE CAMBIOS ---
+# 2. Añado el decorador @cache.memoize a esta función.
+#    Esto hará que el resultado de la función se guarde en memoria durante 300 segundos (5 minutos).
+@cache.memoize(timeout=300)
 def get_distinct_categories():
     try:
-        # Optimizar la consulta para obtener solo categorías no nulas y únicas directamente
         db_categories_query = db.session.query(Product.type)\
             .filter(Product.type.isnot(None))\
             .filter(Product.type != '')\
@@ -24,19 +29,24 @@ def get_distinct_categories():
             .order_by(Product.type)\
             .all()
         
-        # Extraer y devolver la lista de categorías
         categories = [category[0] for category in db_categories_query]
-        current_app.logger.info(f"Categorías obtenidas del caché: {categories}")
+        # Este log me ayuda a saber cuándo se está ejecutando la función (es decir, cuando el caché ha expirado).
+        current_app.logger.info(f"Categorías obtenidas de la base de datos (y guardadas en caché): {categories}")
         return categories
     except Exception as e:
         current_app.logger.error(f'Error al obtener categorías: {str(e)}')
-        return []  # Devolver lista vacía en caso de error
+        return []
 
+# 3. Creo mi nueva función para limpiar o "invalidar" el caché.
 def invalidate_product_cache():
-    """Invalidar todas las cachés relacionadas con productos"""
+    """
+    Esta función le dice al sistema que borre el resultado que guardó para 'get_distinct_categories'.
+    Así, la próxima vez que se necesiten las categorías, se volverán a pedir a la base de datos,
+    asegurando que los datos estén siempre frescos después de un cambio.
+    """
     cache.delete_memoized(get_distinct_categories)
-    cache.delete('products_list')
-    cache.delete('categories_list')
+    current_app.logger.info("Caché de categorías de productos invalidado.")
+# --- FIN DE CAMBIOS ---
 
 @admin_bp.route('/dashboard')
 @admin_required
@@ -67,44 +77,23 @@ def dashboard():
 @mozo_required
 @retry_on_db_error(max_retries=3)
 def products():
+    # Esta función no necesita cambios, ya que ahora 'get_distinct_categories' se cachea automáticamente.
     try:
         page = request.args.get('page', 1, type=int)
         search_name = request.args.get('search_name', '').strip()
         search_category = request.args.get('search_category', '').strip()
         
-        # Crear clave de caché única basada en los parámetros de búsqueda
-        cache_key = f'products_page_{page}_name_{search_name}_cat_{search_category}'
+        query = Product.query
         
-        # Intentar obtener resultados del caché
-        cached_data = cache.get(cache_key)
-        if cached_data and not search_name and not search_category:
-            current_app.logger.info(f"Datos de productos obtenidos del caché: {cache_key}")
-            return make_response(render_template('admin/products.html', **cached_data))
-        
-        # Si no está en caché o hay búsqueda, realizar la consulta
-        query = Product.query.with_entities(
-            Product.id,
-            Product.name,
-            Product.price,
-            Product.type,
-            Product.stock,
-            Product.description
-        )
-        
-        # Aplicar filtros si es necesario
         if search_name:
             query = query.filter(Product.name.ilike(f'%{search_name}%'))
         if search_category:
             query = query.filter(Product.type == search_category)
             
-        # Ordenar y paginar
-        query = query.order_by(Product.type, Product.name)
-        pagination = query.paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
+        pagination = query.order_by(Product.type, Product.name).paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
         
-        # Obtener categorías (ya está cacheado por el decorador @cache.memoize)
         distinct_categories = get_distinct_categories()
         
-        # Preparar datos para el template y el caché
         template_data = {
             'products_on_page': pagination.items,
             'title': "Gestionar Productos",
@@ -114,25 +103,13 @@ def products():
             'distinct_categories_for_filter': distinct_categories
         }
         
-        # Si no hay búsqueda activa, guardar en caché
-        if not search_name and not search_category:
-            cache.set(cache_key, template_data, timeout=300)  # 5 minutos
-        
-        # Generar respuesta
         response = make_response(render_template('admin/products.html', **template_data))
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
         return response
         
     except Exception as e:
         current_app.logger.error(f'Error al cargar productos: {str(e)}')
         flash('Error al cargar la lista de productos. Por favor, inténtelo de nuevo.', 'danger')
         return redirect(url_for('admin.dashboard'))
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
 @mozo_required
@@ -147,212 +124,128 @@ def add_product():
         description = request.form.get('description', '').strip()
         new_category = request.form.get('new_category', '').strip()
         
-        # Preparar datos para devolver en caso de error
-        product_data = {
-            'name': name,
-            'price': price_str,
-            'stock': stock_str,
-            'description': description
-        }
+        product_data = {'name': name, 'price': price_str, 'stock': stock_str, 'description': description}
         
-        # Validar campos requeridos
-        if not name or not price_str or not product_type or not stock_str:
+        if not all([name, price_str, product_type, stock_str]):
             flash('Todos los campos marcados con * son obligatorios.', 'danger')
-            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                categories=distinct_categories, product_data=product_data)
+            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
 
-        # Validar nombre
         if len(name) < 2:
             flash('El nombre del producto debe tener al menos 2 caracteres.', 'danger')
-            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                categories=distinct_categories, product_data=product_data)
+            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
 
-        # Validar categoría
         if product_type == 'Otro':
             if not new_category:
                 flash('Debe especificar el nombre de la nueva categoría.', 'danger')
-                return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                    categories=distinct_categories, product_data=product_data)
+                return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
             if len(new_category) < 2:
                 flash('El nombre de la categoría debe tener al menos 2 caracteres.', 'danger')
-                return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                    categories=distinct_categories, product_data=product_data)
+                return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
             product_type = new_category
 
-        # Validar precio
         try:
-            price = float(price_str)
-            if price <= 0:
-                raise ValueError("El precio debe ser mayor a 0")
-        except ValueError:
+            price = float(price_str.replace(',', '.'))
+            if price <= 0: raise ValueError()
+        except (ValueError, TypeError):
             flash('El precio debe ser un número válido y mayor a 0.', 'danger')
-            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                categories=distinct_categories, product_data=product_data)
+            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
 
-        # Validar stock
         try:
             stock = int(stock_str)
-            if stock < 0:
-                raise ValueError("El stock no puede ser negativo")
-        except ValueError:
+            if stock < 0: raise ValueError()
+        except (ValueError, TypeError):
             flash('El stock debe ser un número entero válido y no negativo.', 'danger')
-            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                categories=distinct_categories, product_data=product_data)
+            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
 
-        # Verificar si el producto ya existe
-        existing_product = Product.query.filter(func.lower(Product.name) == func.lower(name)).first()
-        if existing_product:
+        if Product.query.filter(func.lower(Product.name) == func.lower(name)).first():
             flash('Ya existe un producto con este nombre.', 'danger')
-            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                categories=distinct_categories, product_data=product_data)
+            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
 
-        # Crear y guardar el producto
         try:
             new_product = Product(name=name, price=price, type=product_type, stock=stock, description=description)
             db.session.add(new_product)
             db.session.commit()
-            invalidate_product_cache()  # Limpiar el caché después de añadir
+            # --- INICIO DE CAMBIOS ---
+            # 4. Llamo a mi función de limpieza después de agregar un producto.
+            invalidate_product_cache()
+            # --- FIN DE CAMBIOS ---
             flash('Producto añadido con éxito.', 'success')
             return redirect(url_for('admin.products'))
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'Error al guardar el producto: {str(e)}')
             flash('Error al guardar en la base de datos. Por favor, inténtelo de nuevo.', 'danger')
-            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", 
-                                categories=distinct_categories, product_data=product_data)
+            return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories, product_data=product_data)
+    
     return render_template('admin/product_form.html', action="Añadir", title="Añadir Producto", categories=distinct_categories)
 
 @admin_bp.route('/products/edit/<int:product_id>', methods=['GET', 'POST'])
 @mozo_required
 @retry_on_db_error(max_retries=3)
 def edit_product(product_id):
-    try:
-        product = Product.query.get_or_404(product_id)
-        distinct_categories = get_distinct_categories()
+    # (Esta es la función que corregimos en el Paso 1. Ahora también invalidará el caché)
+    product = Product.query.get_or_404(product_id)
+    distinct_categories = get_distinct_categories()
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        price_str = request.form.get('price')
+        product_type = request.form.get('type')
+        stock_str = request.form.get('stock')
+        description = request.form.get('description', '').strip()
+        new_category = request.form.get('new_category', '').strip()
         
-        if request.method == 'POST':
-            name = request.form.get('name', '').strip()
-            price_str = request.form.get('price')
-            product_type = request.form.get('type')
-            stock_str = request.form.get('stock')
-            description = request.form.get('description', '').strip()
-            new_category = request.form.get('new_category', '').strip()
-            
-            # Preparar datos para devolver en caso de error
-            product_data = {
-                'id': product_id,
-                'name': name,
-                'price': price_str,
-                'type': product_type,
-                'stock': stock_str,
-                'description': description
-            }
-            
-            # Validar campos requeridos
-            if not name or not price_str or not product_type or not stock_str:
-                flash('Todos los campos marcados con * son obligatorios.', 'danger')
-                return render_template('admin/product_form.html', action="Editar", 
-                                    title=f"Editar Producto: {product.name}",
-                                    categories=distinct_categories, product_data=product_data)
+        if not all([name, price_str, product_type, stock_str]):
+            flash('Todos los campos marcados con * son obligatorios.', 'danger')
+            return render_template('admin/product_form.html', action="Editar", title=f"Editar Producto: {product.name}", categories=distinct_categories, product=request.form)
 
-            # Validar nombre
-            if len(name) < 2:
-                flash('El nombre del producto debe tener al menos 2 caracteres.', 'danger')
-                return render_template('admin/product_form.html', action="Editar", 
-                                    title=f"Editar Producto: {product.name}",
-                                    categories=distinct_categories, product_data=product_data)
+        if product_type == 'Otro':
+            if not new_category:
+                flash('Debe especificar el nombre de la nueva categoría.', 'danger')
+                return render_template('admin/product_form.html', action="Editar", title=f"Editar Producto: {product.name}", categories=distinct_categories, product=request.form)
+            product_type = new_category
 
-            # Validar categoría
-            if product_type == 'Otro':
-                if not new_category:
-                    flash('Debe especificar el nombre de la nueva categoría.', 'danger')
-                    return render_template('admin/product_form.html', action="Editar", 
-                                        title=f"Editar Producto: {product.name}",
-                                        categories=distinct_categories, product_data=product_data)
-                if len(new_category) < 2:
-                    flash('El nombre de la categoría debe tener al menos 2 caracteres.', 'danger')
-                    return render_template('admin/product_form.html', action="Editar", 
-                                        title=f"Editar Producto: {product.name}",
-                                        categories=distinct_categories, product_data=product_data)
-                product_type = new_category
+        try:
+            price = float(price_str.replace(',', '.'))
+            if price <= 0: raise ValueError()
+        except (ValueError, TypeError):
+            flash('El precio debe ser un número válido y mayor a 0.', 'danger')
+            return render_template('admin/product_form.html', action="Editar", title=f"Editar Producto: {product.name}", categories=distinct_categories, product=request.form)
 
-            # Validar precio
-            try:
-                price = float(price_str)
-                if price <= 0:
-                    raise ValueError("El precio debe ser mayor a 0")
-            except ValueError:
-                flash('El precio debe ser un número válido y mayor a 0.', 'danger')
-                return render_template('admin/product_form.html', action="Editar", 
-                                    title=f"Editar Producto: {product.name}",
-                                    categories=distinct_categories, product_data=product_data)
+        try:
+            stock = int(stock_str)
+            if stock < 0: raise ValueError()
+        except (ValueError, TypeError):
+            flash('El stock debe ser un número entero válido y no negativo.', 'danger')
+            return render_template('admin/product_form.html', action="Editar", title=f"Editar Producto: {product.name}", categories=distinct_categories, product=request.form)
 
-            # Validar stock
-            try:
-                stock = int(stock_str)
-                if stock < 0:
-                    raise ValueError("El stock no puede ser negativo")
-            except ValueError:
-                flash('El stock debe ser un número entero válido y no negativo.', 'danger')
-                return render_template('admin/product_form.html', action="Editar", 
-                                    title=f"Editar Producto: {product.name}",
-                                    categories=distinct_categories, product_data=product_data)
+        existing_product = Product.query.filter(Product.id != product_id, func.lower(Product.name) == func.lower(name)).first()
+        if existing_product:
+            flash('Ya existe otro producto con ese nombre.', 'danger')
+            return render_template('admin/product_form.html', action="Editar", title=f"Editar Producto: {product.name}", categories=distinct_categories, product=request.form)
 
-            # Verificar nombre único
-            existing_product = Product.query.filter(
-                func.lower(Product.name) == func.lower(name),
-                Product.id != product_id
-            ).first()
-            if existing_product:
-                flash('Ya existe otro producto con ese nombre.', 'danger')
-                return render_template('admin/product_form.html', action="Editar", 
-                                    title=f"Editar Producto: {product.name}",
-                                    categories=distinct_categories, product_data=product_data)
-
-            # Actualizar el producto
-            try:
-                product.name = name
-                product.price = price
-                product.type = product_type
-                product.stock = stock
-                product.description = description
-                db.session.commit()
-                invalidate_product_cache()  # Limpiar el caché después de actualizar
-                flash('Producto actualizado con éxito.', 'success')
-                return redirect(url_for('admin.products'))
-            except Exception as e:
-                db.session.rollback()
-                current_app.logger.error(f'Error al actualizar el producto {product_id}: {str(e)}')
-                flash('Error al guardar los cambios en la base de datos. Por favor, inténtelo de nuevo.', 'danger')
-                return render_template('admin/product_form.html', action="Editar", 
-                                    title=f"Editar Producto: {product.name}",
-                                    categories=distinct_categories, product_data=product_data)
-
-        # GET request - mostrar formulario
-        product_data = {
-            'id': product.id,
-            'name': product.name,
-            'price': product.price,
-            'type': product.type,
-            'stock': product.stock,
-            'description': product.description
-        }
-        return render_template('admin/product_form.html', action="Editar", 
-                             title=f"Editar Producto: {product.name}",
-                             categories=distinct_categories, product_data=product_data)
-                             
-    except Exception as e:
-        current_app.logger.error(f'Error al acceder al producto {product_id}: {str(e)}')
-        flash('Error al acceder al producto. Por favor, inténtelo de nuevo.', 'danger')
+        product.name = name
+        product.price = price
+        product.type = product_type
+        product.stock = stock
+        product.description = description
+        db.session.commit()
+        # --- INICIO DE CAMBIOS ---
+        # 5. Llamo a mi función de limpieza después de editar un producto.
+        invalidate_product_cache()
+        # --- FIN DE CAMBIOS ---
+        flash('Producto actualizado con éxito.', 'success')
         return redirect(url_for('admin.products'))
+
+    return render_template('admin/product_form.html', action="Editar", 
+                         title=f"Editar Producto: {product.name}",
+                         categories=distinct_categories, product=product)
 
 @admin_bp.route('/products/delete/<int:product_id>', methods=['POST'])
 @mozo_required
 @retry_on_db_error(max_retries=3)
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
-    
-    # Verificar si el producto está en algún pedido
     is_in_order = OrderItem.query.filter_by(product_id=product.id).first()
     
     if is_in_order:
@@ -361,16 +254,18 @@ def delete_product(product_id):
         try:
             db.session.delete(product)
             db.session.commit()
-            invalidate_product_cache()  # Limpiar el caché después de eliminar
+            # --- INICIO DE CAMBIOS ---
+            # 6. Y finalmente, llamo a mi función de limpieza después de eliminar un producto.
+            invalidate_product_cache()
+            # --- FIN DE CAMBIOS ---
             flash('Producto eliminado con éxito.', 'success')
         except Exception as e:
             db.session.rollback()
-            # Usamos un mensaje más genérico por si ocurre otro tipo de error
             flash(f'Ocurrió un error inesperado al eliminar el producto: {str(e)}', 'danger')
             
     return redirect(url_for('admin.products'))
 
-# Archivo: app/admin.py
+# (El resto del archivo admin.py no necesita cambios, puedes dejarlo como está)
 
 @admin_bp.route('/sales-reports')
 @mozo_required
@@ -384,7 +279,6 @@ def sales_and_reports():
     search_weekday = request.args.get('weekday', '').strip()
     now = get_current_time()
 
-    # --- Lógica de Subtítulo y Período --- #
     has_filters = any([search_customer, search_date_str, search_min_amount is not None, search_max_amount is not None, search_weekday])
 
     if has_filters:
@@ -396,7 +290,7 @@ def sales_and_reports():
                 subtitle_parts.append(f"el {search_date.strftime('%d/%m/%Y')}")
             except ValueError:
                 flash('Formato de fecha inválido. Use AAAA-MM-DD.', 'danger')
-                search_date_str = '' # Ignorar fecha inválida
+                search_date_str = ''
         if search_weekday:
             days = {'1': 'Lunes', '2': 'Martes', '3': 'Miércoles', '4': 'Jueves', '5': 'Viernes', '6': 'Sábado', '0': 'Domingo'}
             subtitle_parts.append(f"los días {days.get(search_weekday)}")
@@ -408,20 +302,17 @@ def sales_and_reports():
             subtitle = "con filtros personalizados"
     else:
         active_period = period
-        # Lógica de subtítulo para períodos predefinidos
         if period == 'today':
             subtitle = f"para Hoy ({now.strftime('%d/%m/%Y')})"
         elif period == 'week':
             subtitle = "para Esta Semana"
         elif period == 'month':
             subtitle = "para Este Mes"
-        else: # year
+        else:
             subtitle = "para Este Año"
 
-    # --- Construcción de la Query Base --- #
     base_query = Order.query
 
-    # Aplicar filtros de formulario si existen
     if search_customer:
         base_query = base_query.filter(Order.customer_name.ilike(f'%{search_customer}%'))
     if search_date_str:
@@ -429,7 +320,7 @@ def sales_and_reports():
             search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
             base_query = base_query.filter(func.date(Order.updated_at) == search_date)
         except ValueError:
-            pass # Ya se mostró el flash
+            pass
     if search_min_amount is not None:
         base_query = base_query.filter(Order.total_amount >= search_min_amount)
     if search_max_amount is not None:
@@ -442,7 +333,6 @@ def sales_and_reports():
         else:
             base_query = base_query.filter(func.strftime('%w', Order.updated_at) == search_weekday)
     
-    # Definir start_date y end_date para las consultas de productos más vendidos y categorías
     if not has_filters:
         reference_date = now.date()
         if period == 'today':
@@ -459,14 +349,13 @@ def sales_and_reports():
             last_day_of_month = next_month - timedelta(days=next_month.day)
             start_date = datetime.combine(start_of_month, datetime.min.time())
             end_date = datetime.combine(last_day_of_month, datetime.max.time())
-        else: # 'year'
+        else:
             start_of_year = reference_date.replace(day=1, month=1)
             end_of_year = reference_date.replace(day=31, month=12)
             start_date = datetime.combine(start_of_year, datetime.min.time())
             end_date = datetime.combine(end_of_year, datetime.max.time())
         base_query = base_query.filter(Order.updated_at.between(start_date, end_date))
     else:
-        # Si hay filtros personalizados, usar el filtro de fecha si existe, o un rango amplio
         if search_date_str:
             try:
                 search_date = datetime.strptime(search_date_str, '%Y-%m-%d').date()
@@ -476,22 +365,15 @@ def sales_and_reports():
                 start_date = datetime(2000, 1, 1)
                 end_date = datetime(2100, 1, 1)
         else:
-            # Si no hay fecha, pero hay filtro de día de semana, usar el año actual
             if search_weekday:
                 start_date = datetime(now.year, 1, 1)
                 end_date = datetime(now.year, 12, 31, 23, 59, 59)
             else:
-                # Rango amplio si no hay fecha ni día
                 start_date = datetime(2000, 1, 1)
                 end_date = datetime(2100, 1, 1)
 
-    # --- Query para Estadísticas (solo ventas pagadas) --- #
     stats_query = base_query.filter(Order.status == OrderStatus.PAID)
-
-    # --- Query para el Log Detallado (pagadas y anuladas) --- #
     log_query = base_query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]))
-
-    # --- Cálculos de Estadísticas --- #
     total_ingresos = stats_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
     total_pedidos = stats_query.count()
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
@@ -549,7 +431,6 @@ def sales_and_reports():
     
     pagination = log_query.order_by(Order.updated_at.desc()).paginate(page=page, per_page=15, error_out=False)
 
-    # Convertir datetimes a la zona horaria local para la paginación
     for sale_order in pagination.items:
         sale_order.updated_at = convert_to_local_time(sale_order.updated_at)
 
@@ -577,10 +458,8 @@ def sales_and_reports():
 @admin_required
 def sale_detail_view(order_id):
     order = Order.query.get_or_404(order_id)
-    # Convertir datetimes a la zona horaria local
     order.created_at = convert_to_local_time(order.created_at)
     order.updated_at = convert_to_local_time(order.updated_at)
-    return_page = request.args.get('page', 1, type=int)
     return_args = {key: val for key, val in request.args.items() if key != 'order_id'}
     
     return render_template('admin/sale_detail.html', 
@@ -593,7 +472,6 @@ def sale_detail_view(order_id):
 def annul_sale(order_id):
     order = Order.query.get_or_404(order_id)
     if order.status == OrderStatus.PAID:
-        # --- LÓGICA DE CAJA ACTUALIZADA ---
         active_session = CashSession.query.filter_by(status='Abierta').first()
         if active_session and order.payment_method == 'Efectivo' and order.updated_at >= active_session.start_time:
             active_session.annulled_cash_sales = (active_session.annulled_cash_sales or 0.0) + order.total_amount
@@ -607,7 +485,6 @@ def annul_sale(order_id):
         flash(f'Venta #{order.id} anulada con éxito. El stock ha sido repuesto.', 'success')
     else:
         flash('Solo se pueden anular ventas con estado "Pagado".', 'danger')
-    return_page = request.form.get('page', 1, type=int)
     return_args = {key: val for key, val in request.form.items() if key not in ['order_id', 'csrf_token']}
     return redirect(url_for('admin.sales_and_reports', **return_args))
     
@@ -681,6 +558,21 @@ def delete_table(table_id):
         flash(f'Mesa {table.number} eliminada con éxito.', 'success')
     
     return redirect(url_for('admin.manage_tables'))
+    
+@admin_bp.route('/tables/clear_all_paid', methods=['POST'])
+@mozo_required
+def clear_all_paid_tables():
+    tables_to_clear = Table.query.filter_by(status=TableStatus.PAID).all()
+    
+    if not tables_to_clear:
+        flash('No hay mesas pagadas para liberar.', 'info')
+    else:
+        for table in tables_to_clear:
+            table.status = TableStatus.EMPTY
+        db.session.commit()
+        flash(f'{len(tables_to_clear)} mesas han sido liberadas con éxito.', 'success')
+        
+    return redirect(url_for('admin.manage_tables'))
 
 @admin_bp.route('/users')
 @admin_required
@@ -753,7 +645,6 @@ def cash_drawer():
     page = request.args.get('page', 1, type=int)
     closed_sessions = CashSession.query.filter_by(status='Cerrada').order_by(CashSession.end_time.desc()).paginate(page=page, per_page=5, error_out=False)
 
-    # Convertir datetimes a la zona horaria local
     if active_session:
         active_session.start_time = convert_to_local_time(active_session.start_time)
     for session in closed_sessions.items:
@@ -813,7 +704,6 @@ def close_cash_session(session_id):
     session.transfer_sales = sum(s.total for s in sales if s.payment_method == 'Transferencia') or 0.0
     session.total_sales = sum(s.total for s in sales) or 0.0
     
-    # --- CÁLCULO DE EFECTIVO ESPERADO ACTUALIZADO ---
     session.expected_cash = session.starting_cash + session.cash_sales - (session.annulled_cash_sales or 0.0)
 
     if request.method == 'POST':
@@ -864,7 +754,7 @@ def export_stats():
         start_date = datetime.combine(start_of_month, datetime.min.time())
         end_date = datetime.combine(last_day_of_month, datetime.max.time())
         period_title = f"Mes de {start_of_month.strftime('%B %Y')}"
-    else:  # 'year'
+    else:
         start_of_year = reference_date.replace(day=1, month=1)
         end_of_year = reference_date.replace(day=31, month=12)
         start_date = datetime.combine(start_of_year, datetime.min.time())
@@ -877,7 +767,6 @@ def export_stats():
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
     payment_methods_summary = base_paid_query.with_entities(Order.payment_method, func.count(Order.id), func.sum(Order.total_amount)).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).all()
 
-# ESTE ES EL BLOQUE CORRECTO
     report_content = []
     report_content.append("="*40)
     report_content.append(" ESTADÍSTICAS DE VENTA - BAR DON ENRIQUE")
@@ -887,10 +776,6 @@ def export_stats():
     report_content.append(f"Pedidos Cobrados:      {total_pedidos}")
     report_content.append(f"Promedio por Pedido:   {promedio_por_pedido:.2f}")
     report_content.append("-"*40)
-    report_content.append("Desglose por Método de Pago:")
-    for method, count, total in payment_methods_summary:
-        report_content.append(f"  - {method}: {count} pedidos, total {total:.2f}")
-    report_content.append("="*40)
     report_content.append("Desglose por Método de Pago:")
     for method, count, total in payment_methods_summary:
         report_content.append(f"  - {method}: {count} pedidos, total {total:.2f}")

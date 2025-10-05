@@ -54,7 +54,7 @@ def table_detail_view(table_id):
     
     products_by_category = get_products_by_category()
     pizzas = Product.query.filter_by(type='Pizzas').order_by(Product.name).all()
-    payment_methods = ['Efectivo', 'Tarjeta', 'Transferencia']
+    payment_methods = ['Efectivo', 'Transferencia']
 
     return render_template('mozo/table_detail.html', 
                            table=table_instance, 
@@ -342,7 +342,7 @@ def new_takeaway_order():
 @mozo_required
 def takeaway_order_detail(order_id):
     order = Order.query.filter_by(id=order_id, type='Para Llevar').first_or_404()
-    payment_methods = ['Efectivo', 'Tarjeta', 'Transferencia']
+    payment_methods = ['Efectivo', 'Transferencia']
     products_by_category = get_products_by_category()
     pizzas = Product.query.filter_by(type='Pizzas').order_by(Product.name).all()
 
@@ -405,4 +405,54 @@ def delete_takeaway_order(order_id):
     db.session.delete(order)
     db.session.commit()
     flash(f'Pedido #{order.id} eliminado del historial visible.', 'success')
+    return redirect(url_for('mozo.takeaway_orders_view'))
+# Al final de app/mozo.py
+
+@mozo_bp.route('/takeaway/bulk_action', methods=['POST'])
+@mozo_required
+def takeaway_bulk_action():
+    # Esta es mi nueva función para acciones en lote.
+    # Primero, obtengo la acción a realizar (pagar o cancelar) y la lista de IDs de los pedidos seleccionados.
+    action = request.form.get('action')
+    order_ids = request.form.getlist('order_ids')
+
+    if not action or not order_ids:
+        flash('No se seleccionó ninguna acción o ningún pedido.', 'warning')
+        return redirect(url_for('mozo.takeaway_orders_view'))
+
+    # Convierto los IDs a números enteros para la consulta.
+    order_ids = [int(id) for id in order_ids]
+    orders = Order.query.filter(Order.id.in_(order_ids), Order.type == 'Para Llevar').all()
+    
+    count = 0
+    if action == 'mark_paid':
+        # Si la acción es 'marcar como pagado', recorro los pedidos y actualizo su estado.
+        for order in orders:
+            if order.status == OrderStatus.PENDING and order.items:
+                order.status = OrderStatus.PAID
+                # Por defecto, asigno 'Efectivo' como método de pago en acciones masivas.
+                order.payment_method = 'Efectivo' 
+                order.updated_at = datetime.utcnow()
+                count += 1
+        if count > 0:
+            flash(f'{count} pedidos marcados como pagados.', 'success')
+        else:
+            flash('Ningún pedido seleccionado era válido para ser pagado.', 'info')
+
+    elif action == 'cancel':
+        # Si la acción es 'cancelar', hago lo mismo pero cambiando el estado a 'Cancelado'.
+        for order in orders:
+            if order.status == OrderStatus.PENDING:
+                # Devuelvo el stock de los productos del pedido cancelado.
+                for item in order.items:
+                    if item.product and not item.display_name:
+                        item.product.stock += item.quantity
+                db.session.delete(order) # Elimino el pedido en lugar de solo cambiar el estado
+                count += 1
+        if count > 0:
+            flash(f'{count} pedidos cancelados y eliminados. El stock ha sido restaurado.', 'success')
+        else:
+            flash('Ningún pedido seleccionado era válido para ser cancelado.', 'info')
+            
+    db.session.commit()
     return redirect(url_for('mozo.takeaway_orders_view'))

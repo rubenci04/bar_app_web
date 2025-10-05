@@ -104,3 +104,111 @@
         min-width: 44px;
     }
 }
+/* Archivo: app/static/css/custom.css */
+
+/* Transiciones suaves */
+.transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
+
+/* Menú móvil */
+#mobile-menu {
+    transition: max-height 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+/* Ajustes responsivos específicos */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .nav-link {
+        padding: 0.75rem 1rem;
+        width: 100%;
+        display: block;
+    }
+    
+    .table-responsive {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Botón de tema */
+#theme-toggle, #theme-toggle-mobile {
+    transition: all 0.2s ease;
+}
+
+#theme-toggle:hover, #theme-toggle-mobile:hover {
+    transform: scale(1.05);
+}
+
+/* Animaciones de íconos */
+.fa-sun, .fa-moon {
+    transition: transform 0.3s ease;
+}
+
+#theme-toggle:hover .fa-sun, 
+#theme-toggle:hover .fa-moon,
+#theme-toggle-mobile:hover .fa-sun,
+#theme-toggle-mobile:hover .fa-moon {
+    transform: rotate(15deg);
+}
+
+/* Estilos para el menú móvil */
+#mobile-menu-button {
+    transition: transform 0.3s ease;
+}
+
+#mobile-menu-button[aria-expanded="true"] i {
+    transform: rotate(180deg);
+}
+
+/* Notificaciones Toast */
+.toast {
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease-in-out;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Mejoras de accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Estilos dark mode */
+.dark .nav-link {
+    color: #e5e7eb;
+}
+
+.dark .nav-link:hover {
+    background-color: rgba(75, 85, 99, 0.4);
+}
+
+/* Mejoras de usabilidad táctil */
+@media (hover: none) {
+    .hover\:bg-gray-100:hover {
+        background-color: transparent;
+    }
+    
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
