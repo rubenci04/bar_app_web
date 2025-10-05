@@ -1,9 +1,10 @@
-# Archivo: app/mozo.py
+# Archivo: app/mozo.py (Versión Corregida)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from .models import Table, Product, Order, OrderItem, TableStatus, OrderStatus
 from . import db
 from .utils import mozo_required
 from sqlalchemy.orm import selectinload
+from sqlalchemy import text
 from collections import OrderedDict
 from datetime import datetime
 
@@ -73,7 +74,6 @@ def start_table_order(table_id):
             flash('La mesa ya se encuentra ocupada.', 'warning')
             return redirect(url_for('mozo.table_detail_view', table_id=table.id))
 
-        # Primero, buscamos y eliminamos los pedidos antiguos en una transacción separada
         old_orders = Order.query.filter(
             Order.table_id == table.id,
             Order.status.in_([OrderStatus.ACTIVE, OrderStatus.PENDING, OrderStatus.PAID])
@@ -89,16 +89,18 @@ def start_table_order(table_id):
                 flash('Error al limpiar pedidos antiguos. Por favor, intente de nuevo.', 'danger')
                 return redirect(url_for('mozo.table_detail_view', table_id=table.id))
 
-        # Luego, creamos el nuevo pedido usando la función segura
         try:
-            from .db_operations import create_order_safely
-            new_order = create_order_safely(
+            # --- AQUÍ ESTÁ LA CORRECCIÓN ---
+            # Ya no uso 'create_order_safely'. Creo el pedido directamente.
+            # La base de datos se encargará del ID automáticamente.
+            new_order = Order(
                 type='Mesa',
                 table_id=table.id,
                 status=OrderStatus.ACTIVE
             )
+            db.session.add(new_order) # Añado el nuevo pedido a la sesión
             table.status = TableStatus.OCCUPIED
-            db.session.commit()
+            db.session.commit() # Guardo todos los cambios
             flash('Nuevo pedido iniciado en la mesa.', 'success')
         except Exception as e:
             db.session.rollback()
@@ -130,51 +132,31 @@ def add_item_to_order(order_id):
         return jsonify({'success': False, 'message': f'Stock insuficiente para {product.name}. Stock actual: {product.stock}.'}), 400
 
     try:
-        # Usamos una transacción anidada para manejar la creación/actualización del item
-        with db.session.begin_nested():
-            # Primero obtenemos el máximo ID actual
-            max_id = db.session.query(db.func.max(OrderItem.id)).scalar() or 0
-            # Actualizamos la secuencia antes de crear cualquier nuevo registro
-            db.session.execute(db.text(f"SELECT setval('order_item_id_seq', {max_id + 1}, false)"))
-            
-            order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
-            if order_item:
-                order_item.quantity += quantity
-                order_item.calculate_subtotal()
-            else:
-                order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
-                db.session.add(order_item)
-            
-            product.stock -= quantity
-
-        # Si llegamos aquí, la transacción anidada fue exitosa
+        order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
+        if order_item:
+            order_item.quantity += quantity
+        else:
+            order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
+            db.session.add(order_item)
+        
+        product.stock -= quantity
         order.calculate_total()
         db.session.commit()
 
-        # Recuperar todos los items actualizados
         items = [{
-            'id': item.id,
-            'name': item.display_name or item.product.name,
-            'quantity': item.quantity,
-            'unit_price': item.unit_price,
-            'subtotal': item.subtotal,
-            'product_id': item.product_id
+            'id': item.id, 'name': item.display_name or item.product.name,
+            'quantity': item.quantity, 'unit_price': item.unit_price,
+            'subtotal': item.subtotal, 'product_id': item.product_id
         } for item in order.items]
 
         return jsonify({
-            'success': True,
-            'message': f'{product.name} añadido correctamente.',
-            'order_total': order.total_amount,
-            'items': items,
-            'product_stock': product.stock
+            'success': True, 'message': f'{product.name} añadido correctamente.',
+            'order_total': order.total_amount, 'items': items
         })
     except Exception as e:
         db.session.rollback()
         print(f"Error al agregar item al pedido: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'Error al agregar el producto. Por favor, intente de nuevo.'
-        }), 500
+        return jsonify({'success': False, 'message': 'Error al agregar el producto.'}), 500
 
 @mozo_bp.route('/order/<int:order_id>/add_half_pizza', methods=['POST'])
 @mozo_required
@@ -192,17 +174,12 @@ def add_half_pizza(order_id):
     pizza1 = Product.query.get_or_404(pizza1_id)
     pizza2 = Product.query.get_or_404(pizza2_id)
     
-    # --- LÓGICA DE PRECIOS CORREGIDA ---
-    # Buscamos el producto especial que define el recargo
     surcharge_product = Product.query.filter_by(name="Recargo Pizza Mitad/Mitad").first()
-    # Si no existe, usamos un valor por defecto de 500 para evitar errores
     surcharge = surcharge_product.price if surcharge_product else 500.0
     
-    # Calculamos el precio final con la nueva fórmula
     final_price = (pizza1.price / 2) + (pizza2.price / 2) + surcharge
     display_name = f"Mitad: {pizza1.name} / Mitad: {pizza2.name}"
     
-    # Usamos el product_id de la pizza más cara como referencia
     reference_product_id = pizza1.id if pizza1.price >= pizza2.price else pizza2.id
     
     order_item = OrderItem(order_id=order.id, product_id=reference_product_id, quantity=1, unit_price=final_price, display_name=display_name)
@@ -210,9 +187,15 @@ def add_half_pizza(order_id):
     order.calculate_total()
     db.session.commit()
     
+    items = [{
+        'id': item.id, 'name': item.display_name or item.product.name,
+        'quantity': item.quantity, 'unit_price': item.unit_price,
+        'subtotal': item.subtotal, 'product_id': item.product_id
+    } for item in order.items]
+    
     return jsonify({
-        'success': True, 'message': 'Pizza combinada añadida con éxito.', 'order_total': order.total_amount,
-        'item': { 'id': order_item.id, 'name': order_item.display_name, 'quantity': order_item.quantity, 'unit_price': order_item.unit_price, 'subtotal': order_item.subtotal, 'product_id': order_item.product_id }
+        'success': True, 'message': 'Pizza combinada añadida con éxito.',
+        'order_total': order.total_amount, 'items': items
     })
 
 @mozo_bp.route('/order_item/<int:item_id>/remove', methods=['POST'])
@@ -232,12 +215,11 @@ def remove_item_from_order(item_id):
     order.calculate_total()
     db.session.commit()
 
+    items = [{'id': item.id, 'name': item.display_name or item.product.name, 'quantity': item.quantity, 'unit_price': item.unit_price, 'subtotal': item.subtotal} for item in order.items]
+
     return jsonify({
-        'success': True,
-        'message': 'Ítem eliminado.',
-        'order_total': order.total_amount,
-        'product_stock': product.stock if product else 0,
-        'removed_item_id': item_id
+        'success': True, 'message': 'Ítem eliminado.',
+        'order_total': order.total_amount, 'items': items
     })
 
 @mozo_bp.route('/order/<int:order_id>/mark_paid', methods=['POST'])
@@ -304,7 +286,6 @@ def cancel_order(order_id):
     else:
         return redirect(url_for('mozo.takeaway_orders_view'))
 
-# --- Las rutas de "Para Llevar" no tienen cambios ---
 @mozo_bp.route('/takeaway')
 @mozo_required
 def takeaway_orders_view():
@@ -321,12 +302,14 @@ def new_takeaway_order():
             return redirect(url_for('mozo.new_takeaway_order'))
 
         try:
-            from .db_operations import create_order_safely
-            new_order = create_order_safely(
+            # --- AQUÍ ESTÁ LA OTRA CORRECCIÓN ---
+            # También creo el pedido para llevar directamente.
+            new_order = Order(
                 type='Para Llevar',
                 customer_name=customer_name,
                 status=OrderStatus.PENDING
             )
+            db.session.add(new_order)
             db.session.commit()
             flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
             return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
@@ -406,13 +389,10 @@ def delete_takeaway_order(order_id):
     db.session.commit()
     flash(f'Pedido #{order.id} eliminado del historial visible.', 'success')
     return redirect(url_for('mozo.takeaway_orders_view'))
-# Al final de app/mozo.py
 
 @mozo_bp.route('/takeaway/bulk_action', methods=['POST'])
 @mozo_required
 def takeaway_bulk_action():
-    # Esta es mi nueva función para acciones en lote.
-    # Primero, obtengo la acción a realizar (pagar o cancelar) y la lista de IDs de los pedidos seleccionados.
     action = request.form.get('action')
     order_ids = request.form.getlist('order_ids')
 
@@ -420,17 +400,14 @@ def takeaway_bulk_action():
         flash('No se seleccionó ninguna acción o ningún pedido.', 'warning')
         return redirect(url_for('mozo.takeaway_orders_view'))
 
-    # Convierto los IDs a números enteros para la consulta.
     order_ids = [int(id) for id in order_ids]
     orders = Order.query.filter(Order.id.in_(order_ids), Order.type == 'Para Llevar').all()
     
     count = 0
     if action == 'mark_paid':
-        # Si la acción es 'marcar como pagado', recorro los pedidos y actualizo su estado.
         for order in orders:
             if order.status == OrderStatus.PENDING and order.items:
                 order.status = OrderStatus.PAID
-                # Por defecto, asigno 'Efectivo' como método de pago en acciones masivas.
                 order.payment_method = 'Efectivo' 
                 order.updated_at = datetime.utcnow()
                 count += 1
@@ -440,14 +417,12 @@ def takeaway_bulk_action():
             flash('Ningún pedido seleccionado era válido para ser pagado.', 'info')
 
     elif action == 'cancel':
-        # Si la acción es 'cancelar', hago lo mismo pero cambiando el estado a 'Cancelado'.
         for order in orders:
             if order.status == OrderStatus.PENDING:
-                # Devuelvo el stock de los productos del pedido cancelado.
                 for item in order.items:
                     if item.product and not item.display_name:
                         item.product.stock += item.quantity
-                db.session.delete(order) # Elimino el pedido en lugar de solo cambiar el estado
+                db.session.delete(order)
                 count += 1
         if count > 0:
             flash(f'{count} pedidos cancelados y eliminados. El stock ha sido restaurado.', 'success')

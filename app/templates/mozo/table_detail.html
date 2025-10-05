@@ -165,8 +165,5 @@
 {% endblock %}
 
 {% block scripts %}
-{{ super() }}
 <script src="{{ url_for('static', filename='js/order_manager.js') }}"></script>
-{% endblock %} 
-{% extends "layout.html" %}
-{% block content %}
+{% endblock %}

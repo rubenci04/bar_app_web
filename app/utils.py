@@ -1,4 +1,4 @@
-# Archivo: app/utils.py
+# Archivo: app/utils.py (Versión Corregida)
 from functools import wraps
 from flask_login import current_user
 from flask import redirect, url_for, flash, current_app
@@ -18,19 +18,34 @@ def convert_to_local_time(utc_dt, fmt=None):
     if utc_dt is None:
         return '' if fmt else None
     
-    # If it's a date object, just format it or return as is
+    # --- AQUÍ ESTÁ LA CORRECCIÓN ---
+    # Si recibo un texto, intento convertirlo a un objeto de fecha.
+    if isinstance(utc_dt, str):
+        try:
+            # Intento primero el formato de fecha y hora.
+            utc_dt = datetime.strptime(utc_dt, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            try:
+                # Si falla, intento el formato de solo fecha.
+                utc_dt = datetime.strptime(utc_dt, '%Y-%m-%d').date()
+            except ValueError:
+                # Si todo falla, devuelvo el texto original.
+                return utc_dt
+
     if isinstance(utc_dt, date) and not isinstance(utc_dt, datetime):
         if fmt:
             return utc_dt.strftime(fmt)
         return utc_dt
 
-    # If it's a datetime object, proceed with timezone conversion
     if utc_dt.tzinfo is None:
         utc_dt = pytz.utc.localize(utc_dt)
+    
     local_tz = pytz.timezone('America/Argentina/Buenos_Aires')
     local_dt = utc_dt.astimezone(local_tz)
+    
     if fmt:
         return local_dt.strftime(fmt)
+    
     return local_dt
 
 def admin_required(f):
@@ -52,12 +67,6 @@ def mozo_required(f):
     return decorated_function
 
 def retry_on_db_error(max_retries=3, initial_delay=0.1):
-    """Decorador para reintentar operaciones de base de datos con retraso exponencial.
-    
-    Args:
-        max_retries (int): Número máximo de reintentos antes de fallar
-        initial_delay (float): Retraso inicial en segundos antes del primer reintento
-    """
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
@@ -74,7 +83,7 @@ def retry_on_db_error(max_retries=3, initial_delay=0.1):
                         raise ConnectionError(f"Error de conexión a la base de datos: {str(e)}")
                     retries += 1
                     time.sleep(delay)
-                    delay *= 2  # Retraso exponencial
+                    delay *= 2
                 except IntegrityError as e:
                     db.session.rollback()
                     current_app.logger.error(f"Error de integridad en la BD: {str(e)}")

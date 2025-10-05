@@ -51,7 +51,7 @@
                 <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title="{{ product.description }}">{{ product.description or 'N/A' }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400">{{ product.type }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-300 text-right">${{ "%.2f"|format(product.price) }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-300 text-right">{{ product.stock }}</td>
+                <td class="px-6 py-4 whitespace-nowrap {% if product.stock < 5 %}text-red-600 dark:text-red-400 font-bold{% else %}text-gray-600 dark:text-gray-300{% endif %} text-right">{{ product.stock }}{% if product.stock < 5 %} ⚠️{% endif %}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center space-x-4">
                     <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="font-semibold text-blue-600 hover:text-blue-500">Editar</a>
                     <form action="{{ url_for('admin.delete_product', product_id=product.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar {{ product.name }}? Esta acción no se puede deshacer.');">
@@ -85,4 +85,49 @@
     </nav>
 </div>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Mi objetivo es que la búsqueda se haga en tiempo real.
+    const searchInput = document.getElementById('search_name');
+    const categorySelect = document.getElementById('search_category');
+    const productRows = document.querySelectorAll('#products-table tbody tr');
+
+    function filterProducts() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const categoryTerm = categorySelect.value.toLowerCase();
+
+        productRows.forEach(row => {
+            // Me aseguro de que la fila contenga celdas antes de buscar.
+            const nameCell = row.cells[0];
+            const categoryCell = row.cells[2];
+            
+            if (nameCell && categoryCell) {
+                const productName = nameCell.textContent.toLowerCase();
+                const productCategory = categoryCell.textContent.toLowerCase();
+
+                const nameMatch = productName.includes(searchTerm);
+                // Si 'Todas' está seleccionado, la categoría siempre coincide.
+                const categoryMatch = (categoryTerm === '') || (productCategory === categoryTerm);
+
+                if (nameMatch && categoryMatch) {
+                    row.style.display = ''; // Muestro la fila
+                } else {
+                    row.style.display = 'none'; // Oculto la fila
+                }
+            }
+        });
+    }
+
+    // Añado los 'event listeners' para que la función se ejecute cada vez que el usuario escribe o cambia la categoría.
+    if (searchInput) {
+        searchInput.addEventListener('input', filterProducts);
+    }
+    if (categorySelect) {
+        categorySelect.addEventListener('change', filterProducts);
+    }
+});
+</script>
 {% endblock %}

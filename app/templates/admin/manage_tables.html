@@ -95,7 +95,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const editCapacityInput = document.getElementById('edit_capacity');
 
     window.openEditModal = function(tableId, tableNumber, tableCapacity) {
-        editForm.action = "{{ url_for('admin.manage_tables') }}edit/" + tableId;
+        // CORRECCIÓN: Aseguramos que la URL de acción se construya correctamente
+        editForm.action = "{{ url_for('admin.manage_tables') }}".replace(/\/$/, "") + "/edit/" + tableId;
         editNumberInput.value = tableNumber;
         editCapacityInput.value = tableCapacity;
         editModal.classList.remove('hidden');
@@ -113,37 +114,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-{% block scripts %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const editModal = document.getElementById('edit-modal');
-    if (!editModal) return;
-
-    const editForm = document.getElementById('edit-form');
-    const editNumberInput = document.getElementById('edit_number');
-    const editCapacityInput = document.getElementById('edit_capacity');
-
-    window.openEditModal = function(tableId, tableNumber, tableCapacity) {
-        editForm.action = "{{ url_for('admin.manage_tables') }}edit/" + tableId;
-        editNumberInput.value = tableNumber;
-        editCapacityInput.value = tableCapacity;
-        editModal.classList.remove('hidden');
-    }
-
-    window.closeEditModal = function() {
-        editModal.classList.add('hidden');
-    }
-
-    editModal.addEventListener('click', function(e) {
-        if (e.target === editModal) {
-            closeEditModal();
-        }
-    });
-});
-</script>
-{% endblock %}
-
-{% extends "layout.html" %}
-{% block content %}
-{% if active_session %}

@@ -75,12 +75,15 @@
                            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
                            {% if request.endpoint == 'mozo.takeaway_orders_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Para Llevar</a>
                         
+                                <a href="{{ url_for('admin.products') }}" 
+                           class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
+                           {% if request.endpoint == 'admin.products' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}">Productos</a>
+
                         {% if current_user.role == 'admin' %}
                             <span class="text-gray-300 dark:text-gray-600">|</span>
                             {% set nav_links = {
                                 'Dashboard': 'admin.dashboard',
                                 'Ventas y Reportes': 'admin.sales_and_reports',
-                                'Productos': 'admin.products',
                                 'Gestionar Mesas': 'admin.manage_tables',
                                 'Usuarios': 'admin.manage_users',
                                 'Caja Diaria': 'admin.cash_drawer'
@@ -127,13 +130,17 @@
                    <i class="fa-solid fa-bag-shopping mr-2"></i>Para Llevar
                 </a>
                 
+                <a href="{{ url_for('admin.products') }}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.products' %}bg-orange-50 dark:bg-gray-700{% endif %}">
+                   <i class="fa-solid fa-box mr-2"></i>Productos
+                </a>
+
                 {% if current_user.role == 'admin' %}
                     <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
                     
                     {% set nav_links = {
                         'Dashboard': ['admin.dashboard', 'fa-tachometer-alt'],
                         'Ventas y Reportes': ['admin.sales_and_reports', 'fa-chart-line'],
-                        'Productos': ['admin.products', 'fa-box'],
                         'Gestionar Mesas': ['admin.manage_tables', 'fa-grip-vertical'],
                         'Usuarios': ['admin.manage_users', 'fa-users'],
                         'Caja Diaria': ['admin.cash_drawer', 'fa-cash-register']
@@ -185,6 +192,7 @@
     {% block scripts %}
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/form_validation.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -202,17 +210,15 @@
             
             container.appendChild(toast);
 
-            // Muestro el toast
             setTimeout(() => toast.classList.add('show'), 10);
 
-            // Oculto y elimino el toast después de 3 segundos
             setTimeout(() => {
                 toast.classList.remove('show');
                 toast.addEventListener('transitionend', () => toast.remove());
             }, 3000);
         }
     </script>
-    {% endblock %}
+{% endblock %}
 
 </body>
 </html>

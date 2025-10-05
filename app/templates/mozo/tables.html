@@ -3,43 +3,115 @@
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Vista de Mesas</h1>
 </div>
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-    {% for table_info in tables_data %} 
-    <a href="{{ url_for('mozo.table_detail_view', table_id=table_info.id) }}"
-       class="p-4 bg-white dark:bg-gray-800 border rounded-lg shadow-lg text-center transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl
-              {% if table_info.status == 'Vacía' %} border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500
-              {% elif table_info.status == 'Ocupada' %} border-yellow-400 dark:border-yellow-600 hover:border-yellow-500
-              {% elif table_info.status == 'Pagada' %} border-green-400 dark:border-green-600 hover:border-green-500
-              {% endif %}">
-        <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">Mesa {{ table_info.number }}</div>
-        <div class="text-sm mt-1 text-gray-500 dark:text-gray-400">Capacidad: {{ table_info.capacity }}</div>
-        <div class="mt-2 text-sm font-semibold py-1 px-2 rounded-full
-              {% if table_info.status == 'Vacía' %} bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300
-              {% elif table_info.status == 'Ocupada' %} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
-              {% elif table_info.status == 'Pagada' %} bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
-              {% endif %}">
-            {{ table_info.status }}
+
+<form id="bulk-action-form" method="POST" action="{{ url_for('admin.bulk_action_tables') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" id="bulk-action-input">
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+        {% for table_info in tables_data %} 
+        <label class="relative cursor-pointer">
+            <input type="checkbox" name="table_ids" value="{{ table_info.id }}" class="table-checkbox absolute top-2 right-2 h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 z-10">
+            
+            <a href="{{ url_for('mozo.table_detail_view', table_id=table_info.id) }}"
+               class="block p-4 bg-white dark:bg-gray-800 border rounded-lg shadow-lg text-center transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:shadow-xl
+                      {% if table_info.status == 'Vacía' %} border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500
+                      {% elif table_info.status == 'Ocupada' %} border-yellow-400 dark:border-yellow-600 hover:border-yellow-500
+                      {% elif table_info.status == 'Pagada' %} border-green-400 dark:border-green-600 hover:border-green-500
+                      {% endif %}">
+                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">Mesa {{ table_info.number }}</div>
+                <div class="text-sm mt-1 text-gray-500 dark:text-gray-400">Capacidad: {{ table_info.capacity }}</div>
+                <div class="mt-2 text-sm font-semibold py-1 px-2 rounded-full
+                      {% if table_info.status == 'Vacía' %} bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300
+                      {% elif table_info.status == 'Ocupada' %} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                      {% elif table_info.status == 'Pagada' %} bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                      {% endif %}">
+                    {{ table_info.status }}
+                </div>
+                {% if table_info.status == 'Ocupada' %}
+                    {% if table_info.total_pedido_activo > 0 %}
+                        <div class="text-base mt-2 text-gray-800 dark:text-gray-100 font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
+                    {% else %}
+                         <div class="text-xs mt-2 text-gray-400 dark:text-gray-500 italic">(Vacio)</div>
+                    {% endif %}
+                {% elif table_info.status == 'Pagada' %}
+                    <div class="text-xs mt-2 text-green-600 dark:text-green-400 italic">(Cuenta cerrada)</div>
+                {% endif %}
+            </a>
+        </label>
+        {% endfor %}
+    </div>
+
+    <div id="bulk-actions-footer" class="hidden sticky bottom-0 mt-6 flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-100 dark:bg-slate-900 rounded-lg shadow-lg border dark:border-slate-700">
+        <p class="text-sm font-semibold text-gray-700 dark:text-slate-200">
+            <span id="selected-count">0</span> mesas seleccionadas.
+        </p>
+        <div class="flex gap-3">
+            <button type="button" data-action="liberate" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors text-sm">
+                <i class="fa-solid fa-broom mr-2"></i>Liberar Pagadas
+            </button>
+            <button type="button" data-action="cancel" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors text-sm">
+                <i class="fa-solid fa-times mr-2"></i>Cancelar Pedidos
+            </button>
         </div>
-        {% if table_info.status == 'Ocupada' %}
-            {% if table_info.total_pedido_activo > 0 %}
-                <div class="text-base mt-2 text-gray-800 dark:text-gray-100 font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
-            {% else %}
-                 <div class="text-xs mt-2 text-gray-400 dark:text-gray-500 italic">(Vacio)</div>
-            {% endif %}
-        {% elif table_info.status == 'Pagada' %}
-            <div class="text-xs mt-2 text-green-600 dark:text-green-400 italic">(Cuenta cerrada)</div>
-        {% endif %}
-    </a>
-    {% endfor %}
-</div>
+    </div>
+</form>
 {% endblock %}
 
 {% block scripts %}
-{{ super() }}
 <script>
-    // Refrescar la página cada 30 segundos (30000 milisegundos)
+    // Refresco automático de la página cada 30 segundos.
     setTimeout(function(){
         window.location.reload(1);
     }, 30000);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Lógica para manejar la selección de mesas y mostrar/ocultar el menú de acciones.
+        const checkboxes = document.querySelectorAll('.table-checkbox');
+        const bulkActionsFooter = document.getElementById('bulk-actions-footer');
+        const selectedCountSpan = document.getElementById('selected-count');
+        const bulkActionButtons = document.querySelectorAll('.bulk-action-btn');
+        const bulkActionInput = document.getElementById('bulk-action-input');
+        const bulkActionForm = document.getElementById('bulk-action-form');
+
+        function updateFooterVisibility() {
+            const checkedCount = document.querySelectorAll('.table-checkbox:checked').length;
+            selectedCountSpan.textContent = checkedCount;
+            if (checkedCount > 0) {
+                bulkActionsFooter.classList.remove('hidden');
+            } else {
+                bulkActionsFooter.classList.add('hidden');
+            }
+        }
+
+        checkboxes.forEach(checkbox => {
+            // Cada vez que se marca o desmarca un checkbox, actualizo el pie de página.
+            checkbox.addEventListener('change', updateFooterVisibility);
+        });
+
+        bulkActionButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const action = this.dataset.action;
+                let confirmMessage = '';
+                if (action === 'liberate') {
+                    confirmMessage = '¿Seguro que quieres liberar las mesas PAGADAS seleccionadas?';
+                } else if (action === 'cancel') {
+                    confirmMessage = '¿Seguro que quieres CANCELAR los pedidos de las mesas OCUPADAS seleccionadas?';
+                }
+
+                if (confirm(confirmMessage)) {
+                    bulkActionInput.value = action;
+                    bulkActionForm.submit();
+                }
+            });
+        });
+
+        // Evito que hacer clic en el link de la tarjeta active el checkbox.
+        document.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+    });
 </script>
 {% endblock %}
