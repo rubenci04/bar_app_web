@@ -402,7 +402,7 @@ def takeaway_bulk_action():
         return redirect(url_for('mozo.takeaway_orders_view'))
 
     order_ids = [int(id) for id in order_ids]
-    orders = Order.query.filter(Order.id.in_(order_ids), Order.type == 'Para Llever').all()
+    orders = Order.query.filter(Order.id.in_(order_ids), Order.type == 'Para Llevar').all()
     
     count = 0
     if action == 'mark_paid':
@@ -432,3 +432,39 @@ def takeaway_bulk_action():
             
     db.session.commit()
     return redirect(url_for('mozo.takeaway_orders_view'))
+
+@mozo_bp.route('/takeaway/bulk_pay', methods=['POST'])
+@mozo_required
+def bulk_pay_orders():
+    """Endpoint para cobrar múltiples pedidos para llevar con el método de pago seleccionado"""
+    try:
+        data = request.get_json()
+        order_ids = data.get('order_ids', [])
+        payment_method = data.get('payment_method')
+        
+        if not order_ids or not payment_method:
+            return jsonify({'success': False, 'message': 'Faltan datos para procesar el cobro.'}), 400
+        
+        pedidos_cobrados = 0
+        for order_id in order_ids:
+            order = Order.query.get(order_id)
+            if not order or order.type != 'Para Llevar' or order.status != OrderStatus.PENDING:
+                continue
+            if not order.items:
+                continue
+            
+            order.status = OrderStatus.PAID
+            order.payment_method = payment_method
+            order.updated_at = datetime.utcnow()
+            db.session.add(order)
+            pedidos_cobrados += 1
+        
+        db.session.commit()
+        return jsonify({
+            'success': True, 
+            'message': f'{pedidos_cobrados} pedido(s) cobrado(s) correctamente con {payment_method}.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al cobrar pedidos: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error al cobrar los pedidos: {str(e)}'}), 500

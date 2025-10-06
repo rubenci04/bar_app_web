@@ -89,7 +89,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DE PETICIONES AL SERVIDOR ---
 
     // Hago que las funciones addItem y removeItem estén disponibles globalmente en la ventana.
-    window.addItem = function(productId) {
+    window.addItem = function(productId, buttonElement) {
+        // Deshabilitar botón temporalmente para evitar clics múltiples
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.classList.add('opacity-50');
+        }
+        
         const formData = new FormData();
         formData.append('product_id', productId);
         formData.append('quantity', 1);
@@ -102,6 +108,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Si el servidor responde con éxito, actualizo la interfaz y muestro una notificación.
                     updateOrderUI(data);
                     showToast(data.message, 'success');
+                    
+                    // Efecto visual de éxito en el botón
+                    if (buttonElement) {
+                        buttonElement.classList.add('bg-green-600');
+                        setTimeout(() => {
+                            buttonElement.classList.remove('bg-green-600');
+                        }, 300);
+                    }
                 } else {
                     showToast(data.message, 'danger');
                 }
@@ -109,12 +123,26 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error:', error);
                 showToast('Error de red al añadir el producto.', 'danger');
+            })
+            .finally(() => {
+                // Re-habilitar botón
+                if (buttonElement) {
+                    buttonElement.disabled = false;
+                    buttonElement.classList.remove('opacity-50');
+                }
             });
     };
 
     window.removeItem = function(itemId, itemName) {
         if (!confirm(`¿Seguro que quieres quitar "${itemName}" del pedido?`)) return;
 
+        // Animación de fade out antes de eliminar
+        const itemRow = document.getElementById(`item-row-${itemId}`);
+        if (itemRow) {
+            itemRow.style.opacity = '0.5';
+            itemRow.style.transition = 'opacity 0.3s';
+        }
+        
         const formData = new FormData();
         formData.append('csrf_token', csrfToken);
 
@@ -123,21 +151,23 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     // Si se elimina con éxito, actualizo la interfaz completa con los nuevos datos.
-                    // Esto es más simple y robusto que solo quitar un elemento del DOM.
-                     const itemRow = document.getElementById(`item-row-${itemId}`);
-                    if (itemRow) {
-                        itemRow.remove();
-                    }
-                    orderTotalElement.textContent = `$${parseFloat(data.order_total).toFixed(2)}`;
                     updateOrderUI(data);
                     showToast(data.message, 'success');
                 } else {
                     showToast(data.message, 'danger');
+                    // Restaurar opacidad si falla
+                    if (itemRow) {
+                        itemRow.style.opacity = '1';
+                    }
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 showToast('Error de red al eliminar el producto.', 'danger');
+                // Restaurar opacidad si falla
+                if (itemRow) {
+                    itemRow.style.opacity = '1';
+                }
             });
     };
 
@@ -146,6 +176,26 @@ document.addEventListener('DOMContentLoaded', function() {
     if (halfPizzaForm) {
         halfPizzaForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            // Validación de selección
+            const pizza1 = this.querySelector('[name="pizza1_id"]').value;
+            const pizza2 = this.querySelector('[name="pizza2_id"]').value;
+            
+            if (!pizza1 || !pizza2) {
+                showToast('Debes seleccionar dos sabores de pizza.', 'warning');
+                return;
+            }
+            
+            if (pizza1 === pizza2) {
+                showToast('Debes seleccionar dos sabores diferentes.', 'warning');
+                return;
+            }
+            
+            if (window.setButtonLoading) {
+                setButtonLoading(submitBtn, true);
+            }
+            
             const formData = new FormData(this);
             formData.append('csrf_token', csrfToken);
 
@@ -159,6 +209,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         showToast(data.message, 'success');
                     } else {
                         showToast(data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('Error de red al añadir la pizza.', 'danger');
+                })
+                .finally(() => {
+                    if (window.setButtonLoading) {
+                        setButtonLoading(submitBtn, false);
                     }
                 });
         });
@@ -191,30 +250,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ¡Aquí está la magia de la búsqueda en tiempo real!
     if (searchInput) {
+        // Debounce para mejor performance
+        let searchTimeout;
+        
         searchInput.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-
-            // Muestro todas las listas de productos para buscar en todas.
-            productLists.forEach(list => list.classList.remove('hidden'));
-
-            // Recorro cada producto y lo muestro u oculto según el término de búsqueda.
-            document.querySelectorAll('.product-list button').forEach(productButton => {
-                const productName = productButton.querySelector('span.font-semibold').textContent.toLowerCase();
-                if (productName.includes(searchTerm)) {
-                    productButton.style.display = 'block';
-                } else {
-                    productButton.style.display = 'none';
-                }
-            });
+            clearTimeout(searchTimeout);
             
-            // Si el campo de búsqueda está vacío, vuelvo a activar el filtro por categorías.
-            if (searchTerm === '') {
-                const activeButton = document.querySelector('.category-btn.bg-blue-600');
-                if (activeButton) {
-                    activeButton.click();
-                } else {
-                    categoryButtons[0].click();
+            searchTimeout = setTimeout(() => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+
+                if (searchTerm === '') {
+                    // Si está vacío, volver al filtro por categorías
+                    const activeButton = document.querySelector('.category-btn.bg-blue-600');
+                    if (activeButton) {
+                        activeButton.click();
+                    } else if (categoryButtons.length > 0) {
+                        categoryButtons[0].click();
+                    }
+                    return;
                 }
+
+                // Muestro todas las listas de productos para buscar en todas.
+                productLists.forEach(list => list.classList.remove('hidden'));
+
+                let foundCount = 0;
+                // Recorro cada producto y lo muestro u oculto según el término de búsqueda.
+                document.querySelectorAll('.product-list button').forEach(productButton => {
+                    const productName = productButton.querySelector('span.font-semibold').textContent.toLowerCase();
+                    if (productName.includes(searchTerm)) {
+                        productButton.style.display = 'block';
+                        productButton.classList.add('fade-in');
+                        foundCount++;
+                    } else {
+                        productButton.style.display = 'none';
+                    }
+                });
+                
+                // Mostrar mensaje si no hay resultados
+                if (foundCount === 0) {
+                    showToast(`No se encontraron productos con "${searchTerm}"`, 'info');
+                }
+            }, 300); // Esperar 300ms después de que el usuario deje de escribir
+        });
+        
+        // Limpiar búsqueda con botón ESC
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                this.value = '';
+                this.dispatchEvent(new Event('input'));
+                this.blur();
             }
         });
     }

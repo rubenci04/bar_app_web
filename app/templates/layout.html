@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title | default('Inicio') }} - Bar Don Enrique</title>
+    <title>{{ title | default('Inicio') }} - Don Enrique Bar-Gestión</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,62 +11,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-    body { font-family: 'Inter', sans-serif; }
-
-    /* --- ESTILOS PARA TOAST --- */
-    .toast {
-        opacity: 0;
-        transform: translateX(100%);
-        transition: all 0.3s ease-in-out;
+    body { 
+        font-family: 'Inter', sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
     }
-    .toast.show {
-        opacity: 1;
-        transform: translateX(0);
-    }
-
-    /* --- ESTILOS PARA MENÚ MÓVIL --- */
-    #mobile-menu {
-        transition: max-height 0.3s ease-in-out;
-        overflow: hidden;
-    }
-
-    /* --- ESTILOS PARA BOTÓN DE TEMA --- */
-    #theme-toggle, #theme-toggle-mobile {
-        transition: all 0.3s ease;
-    }
-    #theme-toggle:hover, #theme-toggle-mobile:hover {
-        transform: scale(1.1);
-    }
-    .fa-sun, .fa-moon {
-        transition: transform 0.3s ease;
-    }
-    #theme-toggle:hover .fa-sun, 
-    #theme-toggle:hover .fa-moon,
-    #theme-toggle-mobile:hover .fa-sun,
-    #theme-toggle-mobile:hover .fa-moon {
-        transform: rotate(30deg);
-    }
-
-    /* --- ESTILOS PARA ANIMACIÓN DEL BOTÓN DE MENÚ --- */
-    #mobile-menu-button i {
-        transition: transform 0.3s ease;
-    }
-    #mobile-menu-button[aria-expanded="true"] i {
-        transform: rotate(180deg);
+    
+    main {
+        flex: 1;
     }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 transition-colors duration-300">
     <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
-    
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <div class="flex-shrink-0">
-                    <a class="text-xl font-bold text-orange-500" href="{{ url_for('index') }}">
-                        <i class="fa-solid fa-utensils mr-2"></i>Bar Don Enrique
+                <div class="flex-shrink-0 flex items-center">
+                    <a class="text-lg sm:text-xl font-bold text-orange-500 hover:text-orange-600 transition-colors" href="{{ url_for('index') }}">
+                        <i class="fa-solid fa-utensils mr-1 sm:mr-2"></i><span class="hidden sm:inline">Don Enrique Bar-Gestión</span><span class="sm:hidden">DE</span>
                     </a>
                 </div>
-                <div class="hidden md:flex items-center space-x-4">
+                <div class="hidden md:flex items-center space-x-2 lg:space-x-4">
                 {% if current_user.is_authenticated %}
                         <a href="{{ url_for('mozo.tables_view') }}" 
                            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700
@@ -110,9 +76,8 @@
                 </div>
 
                 <div class="md:hidden flex items-center space-x-2">
-                    <button id="mobile-menu-button" aria-expanded="false" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">
-                        <span class="sr-only">Abrir menú principal</span>
-                        <i class="fa-solid fa-bars h-6 w-6"></i>
+                    <button id="mobile-menu-button" aria-expanded="false" aria-label="Abrir menú principal" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500 transition-colors">
+                        <i class="fa-solid fa-bars text-xl"></i>
                     </button>
                 </div>
         </div>
@@ -155,6 +120,14 @@
                 {% endif %}
 
                 <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                
+                <button id="theme-toggle-mobile" type="button" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <i class="fas fa-sun dark:hidden mr-2"></i>
+                    <i class="fas fa-moon hidden dark:inline mr-2"></i>
+                    <span class="dark:hidden">Modo Oscuro</span>
+                    <span class="hidden dark:inline">Modo Claro</span>
+                </button>
+                
                 <a href="{{ url_for('auth.logout') }}" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40">
                     <i class="fa-solid fa-right-from-bracket mr-2"></i>Salir
                 </a>
@@ -167,7 +140,7 @@
     </div>
 </nav>
     
-    <main class="max-w-7xl mx-auto mt-6 px-4 sm:px-6 lg:px-8 py-4">
+    <main class="max-w-7xl mx-auto mt-4 sm:mt-6 px-4 sm:px-6 lg:px-8 py-4 pb-20 sm:pb-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -201,21 +174,51 @@
             const colors = {
                 success: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
                 danger: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700',
+                warning: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700',
                 info: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+            };
+            
+            const icons = {
+                success: 'fa-check-circle',
+                danger: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
             };
 
             const toast = document.createElement('div');
-            toast.className = `toast p-4 mb-4 rounded-lg shadow ${colors[type]} border transition-all duration-300`;
-            toast.textContent = message;
+            toast.className = `toast p-4 mb-3 rounded-lg shadow-lg ${colors[type]} border flex items-center gap-3`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type]} text-lg flex-shrink-0"></i>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-2 text-current opacity-70 hover:opacity-100 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
             
             container.appendChild(toast);
 
+            // Trigger animation
             setTimeout(() => toast.classList.add('show'), 10);
 
-            setTimeout(() => {
+            // Auto remove
+            const removeToast = () => {
                 toast.classList.remove('show');
-                toast.addEventListener('transitionend', () => toast.remove());
-            }, 3000);
+                setTimeout(() => toast.remove(), 300);
+            };
+            
+            setTimeout(removeToast, 4000);
+        }
+        
+        // Función de utilidad para mostrar loader en botones
+        function setButtonLoading(button, loading = true) {
+            if (loading) {
+                button.disabled = true;
+                button.dataset.originalText = button.innerHTML;
+                button.innerHTML = '<span class="spinner inline-block mr-2"></span>Procesando...';
+            } else {
+                button.disabled = false;
+                button.innerHTML = button.dataset.originalText || button.innerHTML;
+            }
         }
     </script>
 {% endblock %}

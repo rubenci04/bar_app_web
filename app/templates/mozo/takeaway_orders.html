@@ -1,92 +1,109 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-    <h1 class="text-3xl font-bold text-gray-800 dark:text-slate-100">Pedidos para Llevar</h1>
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Pedidos para Llevar</h1>
     <a href="{{ url_for('mozo.new_takeaway_order') }}" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
         <i class="fa-solid fa-plus mr-2"></i>Nuevo Pedido
     </a>
 </div>
 
+{% if orders %}
 <form id="bulk-action-form" method="POST" action="{{ url_for('mozo.takeaway_bulk_action') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" id="bulk-action-input">
 
-    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg overflow-x-auto border border-gray-200 dark:border-slate-700">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-            <thead class="bg-gray-50 dark:bg-slate-700/50">
-                <tr>
-                    <th class="px-4 py-3 text-center">
-                        <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Cliente</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Fecha</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Estado</th>
-                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Total</th>
-                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-slate-300 uppercase tracking-wider">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
-                {% for order in orders %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                    <td class="px-4 py-4 text-center">
-                        <input type="checkbox" name="order_ids" value="{{ order.id }}" class="order-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100">#{{ order.id }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-slate-300">{{ order.customer_name }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-slate-400">{{ order.created_at|localtime('%Y-%m-%d %H:%M') }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
-                            {% if order.status == 'Pendiente' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300
-                            {% elif order.status == 'Pagado' %}bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300
-                            {% else %}bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300{% endif %}">
+    <div class="space-y-3 sm:space-y-4">
+        {% for order in orders %}
+        <label class="relative block card bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg shadow-md p-3 sm:p-4 transition-all duration-200 ease-in-out hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer">
+            <input type="checkbox" name="order_ids" value="{{ order.id }}" class="order-checkbox absolute top-3 right-3 h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 z-10 touch-target">
+            <a href="{{ url_for('mozo.takeaway_order_detail', order_id=order.id) }}" class="block touch-target">
+                <div class="flex justify-between items-start gap-3">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-base sm:text-lg text-blue-600 dark:text-blue-500 truncate">Pedido #{{ order.id }}</p>
+                        <p class="text-sm sm:text-base text-gray-800 dark:text-gray-200 font-semibold truncate">
+                            <i class="fas fa-user mr-1"></i>{{ order.customer_name }}
+                        </p>
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <i class="fas fa-shopping-bag mr-1"></i>{{ order.items|length }} ítem(s) · 
+                            <i class="fas fa-clock mr-1"></i>{{ order.created_at.strftime('%H:%M') }}
+                        </p>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <p class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">${{ "%.2f"|format(order.total_amount) }}</p>
+                        <span class="inline-block mt-1 text-xs sm:text-sm font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 pulse">
                             {{ order.status }}
                         </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 dark:text-slate-100 text-right">${{ "%.2f"|format(order.total_amount if order.total_amount is not none else 0.0) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                        <a href="{{ url_for('mozo.takeaway_order_detail', order_id=order.id) }}" class="font-semibold text-blue-600 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors mr-4">Ver/Editar</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="7" class="px-6 py-10 text-center text-gray-400 dark:text-slate-500">No hay pedidos pendientes para llevar.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                </div>
+            </a>
+        </label>
+        {% endfor %}
     </div>
 
-    <div id="bulk-actions-footer" class="hidden mt-4 flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-100 dark:bg-slate-900 rounded-lg">
-        <p class="text-sm font-semibold text-gray-700 dark:text-slate-200">
-            <span id="selected-count">0</span> pedidos seleccionados.
+    <div id="bulk-actions-footer" class="hidden fixed sm:sticky bottom-0 left-0 right-0 sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">
+        <p class="text-sm sm:text-base font-semibold text-gray-700 dark:text-slate-200 text-center sm:text-left">
+            <i class="fas fa-check-square mr-1 text-green-500"></i>
+            <span id="selected-count">0</span> pedido(s) seleccionado(s)
         </p>
-        <div class="flex gap-3">
-            <button type="button" data-action="mark_paid" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors text-sm">
-                <i class="fa-solid fa-check-double mr-2"></i>Marcar como Pagados
+        <div class="flex gap-2 sm:gap-3 flex-wrap justify-center w-full sm:w-auto">
+            <button type="button" id="bulk-pay-btn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-all text-xs sm:text-sm touch-target">
+                <i class="fa-solid fa-dollar-sign mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cobrar Seleccionados</span><span class="xs:hidden">Cobrar</span>
             </button>
-            <button type="button" data-action="cancel" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors text-sm">
-                <i class="fa-solid fa-times mr-2"></i>Cancelar Seleccionados
+            <button type="button" data-action="cancel" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-all text-xs sm:text-sm touch-target">
+                <i class="fa-solid fa-times mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cancelar</span><span class="xs:hidden">Cancelar</span>
             </button>
         </div>
     </div>
 </form>
+{% else %}
+<div class="text-center py-12 fade-in">
+    <i class="fa-solid fa-inbox fa-3x text-gray-400 dark:text-gray-500 mb-4"></i>
+    <p class="text-base sm:text-lg text-gray-500 dark:text-gray-400 mb-2">No hay pedidos pendientes para llevar.</p>
+    <p class="text-sm text-gray-400 dark:text-gray-500">Los nuevos pedidos aparecerán aquí.</p>
+</div>
+{% endif %}
 
+<!-- Modal para elegir método de pago -->
+<div id="bulk-pay-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 fade-in">
+        <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Cobrar Pedidos Seleccionados</h3>
+        <form id="bulk-pay-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-6">
+                <label for="bulk_payment_method" class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Método de Pago</label>
+                <select name="payment_method" id="bulk_payment_method" required class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-md shadow-sm focus:ring-2 focus:ring-green-500 transition">
+                    <option value="" disabled selected>Seleccione un método...</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button type="button" id="close-bulk-pay-modal-btn" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 transition-colors">Cancelar</button>
+                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors">Confirmar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Aquí selecciono todos los elementos que necesito del DOM.
-    const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const orderCheckboxes = document.querySelectorAll('.order-checkbox');
+    const checkboxes = document.querySelectorAll('.order-checkbox');
     const bulkActionsFooter = document.getElementById('bulk-actions-footer');
     const selectedCountSpan = document.getElementById('selected-count');
     const bulkActionButtons = document.querySelectorAll('.bulk-action-btn');
     const bulkActionInput = document.getElementById('bulk-action-input');
     const bulkActionForm = document.getElementById('bulk-action-form');
+    
+    const bulkPayBtn = document.getElementById('bulk-pay-btn');
+    const bulkPayModal = document.getElementById('bulk-pay-modal');
+    const closeBulkPayModalBtn = document.getElementById('close-bulk-pay-modal-btn');
+    const bulkPayForm = document.getElementById('bulk-pay-form');
+    const bulkPaymentMethod = document.getElementById('bulk_payment_method');
 
     function updateFooterVisibility() {
-        // Esta función muestra u oculta el pie de página con los botones de acción.
         const checkedCount = document.querySelectorAll('.order-checkbox:checked').length;
         selectedCountSpan.textContent = checkedCount;
         if (checkedCount > 0) {
@@ -96,42 +113,107 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    if (selectAllCheckbox) {
-        // Lógica para el checkbox 'seleccionar todo'.
-        selectAllCheckbox.addEventListener('change', function() {
-            orderCheckboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-            updateFooterVisibility();
-        });
-    }
-
-    orderCheckboxes.forEach(checkbox => {
-        // Lógica para los checkboxes individuales.
-        checkbox.addEventListener('change', function() {
-            if (!this.checked) {
-                selectAllCheckbox.checked = false;
-            } else if (document.querySelectorAll('.order-checkbox:not(:checked)').length === 0) {
-                selectAllCheckbox.checked = true;
-            }
-            updateFooterVisibility();
-        });
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateFooterVisibility);
     });
 
     bulkActionButtons.forEach(button => {
-        // Lógica para los botones de acción (pagar o cancelar).
         button.addEventListener('click', function() {
             const action = this.dataset.action;
-            let confirmMessage = '';
-            if (action === 'mark_paid') {
-                confirmMessage = '¿Seguro que quieres marcar los pedidos seleccionados como PAGADOS?';
-            } else if (action === 'cancel') {
-                confirmMessage = '¿Seguro que quieres CANCELAR los pedidos seleccionados? Esta acción no se puede deshacer.';
+            const selectedCount = document.querySelectorAll('.order-checkbox:checked').length;
+            
+            if (selectedCount === 0) {
+                showToast('Selecciona al menos un pedido.', 'warning');
+                return;
             }
-
+            
+            let confirmMessage = action === 'cancel' 
+                ? `¿CANCELAR ${selectedCount} pedido(s)? Esta acción no se puede deshacer.`
+                : `¿Confirmar acción sobre ${selectedCount} pedido(s)?`;
+            
             if (confirm(confirmMessage)) {
                 bulkActionInput.value = action;
                 bulkActionForm.submit();
+            }
+        });
+    });
+
+    if (bulkPayBtn) {
+        bulkPayBtn.addEventListener('click', function() {
+            const selectedCount = document.querySelectorAll('.order-checkbox:checked').length;
+            if (selectedCount === 0) {
+                showToast('Selecciona al menos un pedido para cobrar.', 'warning');
+                return;
+            }
+            bulkPayModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeBulkPayModalBtn) {
+        closeBulkPayModalBtn.addEventListener('click', function() {
+            bulkPayModal.classList.add('hidden');
+        });
+    }
+
+    if (bulkPayForm) {
+        bulkPayForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const checkedBoxes = Array.from(document.querySelectorAll('.order-checkbox:checked'));
+            const orderIds = checkedBoxes.map(cb => cb.value);
+            const paymentMethod = bulkPaymentMethod.value;
+            if (!paymentMethod) {
+                showToast('Selecciona un método de pago.', 'warning');
+                return;
+            }
+            
+            const submitButton = bulkPayForm.querySelector('button[type="submit"]');
+            setButtonLoading(submitButton, true);
+
+            fetch("{{ url_for('mozo.bulk_pay_orders') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    csrf_token: bulkPayForm.querySelector('[name="csrf_token"]').value,
+                    order_ids: orderIds,
+                    payment_method: paymentMethod
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                setButtonLoading(submitButton, false);
+                bulkPayModal.classList.add('hidden');
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showToast(data.message || 'Error al cobrar los pedidos.', 'danger');
+                }
+            })
+            .catch(() => {
+                setButtonLoading(submitButton, false);
+                showToast('Error de red. Intenta nuevamente.', 'danger');
+            });
+        });
+    }
+    
+    // Prevenir que el clic en enlaces active el checkbox
+    document.querySelectorAll('.card a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            if (!e.target.closest('.order-checkbox')) {
+                e.stopPropagation();
+            }
+        });
+    });
+    
+    // Mejorar interacción: al hacer clic en la tarjeta (excepto checkbox y enlace), toggle del checkbox
+    document.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('a') && !e.target.closest('.order-checkbox')) {
+                const checkbox = this.querySelector('.order-checkbox');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
             }
         });
     });

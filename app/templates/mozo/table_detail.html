@@ -17,7 +17,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
     
-    <div class="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+    <div class="lg:col-span-3 bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
         <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
             {% if table.status == 'Pagada' %}Resumen de Cuenta Cerrada{% else %}Pedido Actual{% endif %}
         </h2>
@@ -83,28 +83,33 @@
     </div>
     
     {% if table.status == 'Ocupada' and current_order and current_order.status == 'Activo' %}
-    <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
         <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Añadir Productos</h2>
         <div id="add-item-message" class="text-sm"></div>
         
-        <div class="mb-4">
-            <input type="search" id="product-search-input" placeholder="🔎 Buscar producto por nombre..."
-                   class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition">
+                <div class="mb-4 relative">
+            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input type="search" id="product-search-input" placeholder="Buscar producto..."
+                   class="block w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition">
+            <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">ESC para limpiar</span>
         </div>
 
-        <div class="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+                <div class="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-4">
             {% for type, products in products_by_category.items() %}
-                <button class="category-btn px-3 py-1.5 text-sm rounded-md transition-colors bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200" data-category="{{ type | replace(' ', '-') | replace('/', '') }}">{{ type }}</button>
+                <button class="category-btn px-3 py-2 text-xs sm:text-sm rounded-md transition-all bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:scale-105 active:scale-95 touch-target" data-category="{{ type | replace(' ', '-') | replace('/', '') }}">{{ type }}</button>
             {% endfor %}
-             <button id="open-half-pizza-modal-btn" type="button" class="px-3 py-1.5 text-sm rounded-md transition-colors bg-yellow-500 hover:bg-yellow-600 text-white">Pizza Mitad/Mitad</button>
+             <button id="open-half-pizza-modal-btn" type="button" class="px-3 py-2 text-xs sm:text-sm rounded-md transition-all bg-yellow-500 hover:bg-yellow-600 text-white hover:scale-105 active:scale-95 touch-target">
+                <i class="fas fa-pizza-slice mr-1"></i>Pizza Mitad/Mitad
+             </button>
         </div>
-        <div class="product-selection-area max-h-[50vh] overflow-y-auto pr-2">
+        <div class="product-selection-area max-h-[50vh] overflow-y-auto pr-2 scroll-smooth">
         {% for type, products in products_by_category.items() %}
-            <div id="products-{{ type | replace(' ', '-') | replace('/', '') }}" class="product-list grid grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2 hidden">
+                        <div id="products-{{ type | replace(' ', '-') | replace('/', '') }}" class="product-list grid grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2 hidden">
             {% for product in products %}
-                <button onclick="window.addItem({{ product.id }})" class="p-2 text-left rounded-md bg-gray-50 dark:bg-gray-900 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border border-gray-200 dark:border-gray-700">
-                    <span class="font-semibold text-sm text-gray-800 dark:text-gray-100">{{ product.name }}</span>
-                    <span class="block text-xs text-gray-500 dark:text-gray-400" data-price="{{ product.price }}">${{ "%.2f"|format(product.price) }}</span>
+                <button onclick="window.addItem({{ product.id }}, this)" class="p-2 text-left rounded-md bg-gray-50 dark:bg-gray-900 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all touch-target border border-gray-200 dark:border-gray-700 active:scale-95">
+                    <span class="font-semibold text-sm text-gray-800 dark:text-gray-100 block truncate">{{ product.name }}</span>
+                    <span class="block text-xs text-gray-500 dark:text-gray-400 mt-1" data-price="{{ product.price }}">${{ "%.2f"|format(product.price) }}</span>
+                    <span class="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">Stock: {{ product.stock }}</span>
                 </button>
             {% endfor %}
             </div>
@@ -115,8 +120,8 @@
 </div>
 
 {% if current_order %}
-<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
-    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700">
+<div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 fade-in">
         <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Confirmar Pago</h3>
         <form id="payment-form" action="{{ url_for('mozo.mark_order_paid', order_id=current_order.id) }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -135,8 +140,8 @@
     </div>
 </div>
 
-<div id="half-pizza-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
-    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700">
+<div id="half-pizza-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 fade-in">
         <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Seleccionar Sabores de Pizza</h3>
         <form id="half-pizza-form" class="space-y-4">
             <div>
