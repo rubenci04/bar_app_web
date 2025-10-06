@@ -135,6 +135,7 @@ def add_item_to_order(order_id):
         order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
         if order_item:
             order_item.quantity += quantity
+            order_item.calculate_subtotal() # Recalculate subtotal on quantity change
         else:
             order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
             db.session.add(order_item)
@@ -401,7 +402,7 @@ def takeaway_bulk_action():
         return redirect(url_for('mozo.takeaway_orders_view'))
 
     order_ids = [int(id) for id in order_ids]
-    orders = Order.query.filter(Order.id.in_(order_ids), Order.type == 'Para Llevar').all()
+    orders = Order.query.filter(Order.id.in_(order_ids), Order.type == 'Para Llever').all()
     
     count = 0
     if action == 'mark_paid':

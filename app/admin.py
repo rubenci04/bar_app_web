@@ -686,3 +686,32 @@ def bulk_action_tables():
             
     db.session.commit()
     return redirect(url_for('mozo.tables_view'))
+
+@admin_bp.route('/bulk_pay_tables', methods=['POST'])
+@mozo_required
+def bulk_pay_tables():
+    data = request.get_json()
+    table_ids = data.get('table_ids', [])
+    payment_method = data.get('payment_method')
+    if not table_ids or not payment_method:
+        return jsonify({'success': False, 'message': 'Faltan datos para procesar el cobro.'}), 400
+    try:
+        mesas_cobradas = 0
+        for table_id in table_ids:
+            table = Table.query.get(table_id)
+            if not table or table.status != TableStatus.OCCUPIED:
+                continue
+            order = Order.query.filter_by(table_id=table.id, status=OrderStatus.ACTIVE).first()
+            if not order:
+                continue
+            order.status = OrderStatus.PAID
+            order.payment_method = payment_method
+            table.status = TableStatus.PAID
+            db.session.add(order)
+            db.session.add(table)
+            mesas_cobradas += 1
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'{mesas_cobradas} mesas cobradas correctamente.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error al cobrar las mesas: {str(e)}'}), 500

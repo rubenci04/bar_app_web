@@ -46,16 +46,41 @@
         <p class="text-sm font-semibold text-gray-700 dark:text-slate-200">
             <span id="selected-count">0</span> mesas seleccionadas.
         </p>
-        <div class="flex gap-3">
+        <div class="flex gap-3 flex-wrap">
             <button type="button" data-action="liberate" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors text-sm">
                 <i class="fa-solid fa-broom mr-2"></i>Liberar Pagadas
             </button>
             <button type="button" data-action="cancel" class="bulk-action-btn px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors text-sm">
                 <i class="fa-solid fa-times mr-2"></i>Cancelar Pedidos
             </button>
+            <button type="button" id="bulk-pay-btn" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm">
+                <i class="fa-solid fa-dollar-sign mr-2"></i>Cobrar Seleccionadas
+            </button>
         </div>
     </div>
 </form>
+
+<!-- Modal para elegir método de pago -->
+<div id="bulk-pay-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700">
+        <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Cobrar Mesas Seleccionadas</h3>
+        <form id="bulk-pay-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-6">
+                <label for="bulk_payment_method" class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Método de Pago</label>
+                <select name="payment_method" id="bulk_payment_method" required class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-md shadow-sm focus:ring-2 focus:ring-green-500 transition">
+                    <option value="" disabled selected>Seleccione un método...</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button type="button" id="close-bulk-pay-modal-btn" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 transition-colors">Cancelar</button>
+                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">Cobrar</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -73,6 +98,12 @@
         const bulkActionButtons = document.querySelectorAll('.bulk-action-btn');
         const bulkActionInput = document.getElementById('bulk-action-input');
         const bulkActionForm = document.getElementById('bulk-action-form');
+        // --- COBRO EN LOTE ---
+        const bulkPayBtn = document.getElementById('bulk-pay-btn');
+        const bulkPayModal = document.getElementById('bulk-pay-modal');
+        const closeBulkPayModalBtn = document.getElementById('close-bulk-pay-modal-btn');
+        const bulkPayForm = document.getElementById('bulk-pay-form');
+        const bulkPaymentMethod = document.getElementById('bulk_payment_method');
 
         function updateFooterVisibility() {
             const checkedCount = document.querySelectorAll('.table-checkbox:checked').length;
@@ -103,6 +134,62 @@
                     bulkActionInput.value = action;
                     bulkActionForm.submit();
                 }
+            });
+        });
+
+        // Abro el modal para cobrar mesas seleccionadas.
+        bulkPayBtn.addEventListener('click', function() {
+            if (document.querySelectorAll('.table-checkbox:checked').length === 0) {
+                alert('Selecciona al menos una mesa para cobrar.');
+                return;
+            }
+            // Muestro el modal.
+            bulkPayModal.classList.remove('hidden');
+        });
+
+        // Cierro el modal.
+        closeBulkPayModalBtn.addEventListener('click', function() {
+            bulkPayModal.classList.add('hidden');
+        });
+
+        // Manejo el envío del formulario de pago masivo.
+        bulkPayForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const checkedBoxes = Array.from(document.querySelectorAll('.table-checkbox:checked'));
+            const tableIds = checkedBoxes.map(cb => cb.value);
+            const paymentMethod = bulkPaymentMethod.value;
+            if (!paymentMethod) {
+                alert('Selecciona un método de pago.');
+                return;
+            }
+            // Loader visual
+            bulkPayForm.querySelector('button[type="submit"]').disabled = true;
+            bulkPayForm.querySelector('button[type="submit"]').textContent = 'Procesando...';
+            fetch("{{ url_for('admin.bulk_pay_tables') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    csrf_token: bulkPayForm.querySelector('[name="csrf_token"]').value,
+                    table_ids: tableIds,
+                    payment_method: paymentMethod
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                bulkPayForm.querySelector('button[type="submit"]').disabled = false;
+                bulkPayForm.querySelector('button[type="submit"]').textContent = 'Cobrar';
+                bulkPayModal.classList.add('hidden');
+                if (data.success) {
+                    alert('Mesas cobradas correctamente.');
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Error al cobrar las mesas.');
+                }
+            })
+            .catch(() => {
+                bulkPayForm.querySelector('button[type="submit"]').disabled = false;
+                bulkPayForm.querySelector('button[type="submit"]').textContent = 'Cobrar';
+                alert('Error de red. Intenta nuevamente.');
             });
         });
 

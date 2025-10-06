@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="text-right">
                             <p class="font-semibold text-gray-800 dark:text-gray-100 subtotal-display">$${item.subtotal.toFixed(2)}</p>
-                            <button onclick="window.removeItem(${item.id}, '${item.name.replace(/'/g, "\\'")}')" class="text-xs text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors">Quitar</button>
+                            <button onclick="window.removeItem(${item.id}, '${item.name.replace(/'/g, "\'")}')" class="text-xs text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors">Quitar</button>
                         </div>
                     </div>`;
                 orderItemsList.insertAdjacentHTML('beforeend', itemHTML);

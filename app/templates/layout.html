@@ -118,7 +118,7 @@
         </div>
     </div>
 
-    <div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 transition-all duration-300 ease-in-out overflow-hidden" style="max-height: 0" id="mobile-menu">
+    <div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 overflow-hidden" style="max-height: 0" id="mobile-menu">
         <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {% if current_user.is_authenticated %}
                 <a href="{{ url_for('mozo.tables_view') }}" 
