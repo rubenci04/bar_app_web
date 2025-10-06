@@ -724,3 +724,94 @@ def bulk_pay_tables():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error al cobrar las mesas: {str(e)}'}), 500
+
+@admin_bp.route('/tables/bulk_action', methods=['POST'])
+@mozo_required
+def bulk_action_tables():
+    action = request.form.get('action')
+    table_ids = request.form.getlist('table_ids')
+
+    if not action or not table_ids:
+        flash('No se seleccionó ninguna acción o ninguna mesa.', 'warning')
+        return redirect(url_for('mozo.tables_view'))
+
+    table_ids = [int(id) for id in table_ids]
+    
+    liberated_count = 0
+    canceled_count = 0
+
+    if action == 'liberate':
+        tables_to_liberate = Table.query.filter(Table.id.in_(table_ids), Table.status == TableStatus.PAID).all()
+        for table in tables_to_liberate:
+            table.status = TableStatus.EMPTY
+            liberated_count += 1
+            # Corrección: Se quitó .value
+            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status})
+        if liberated_count > 0:
+            flash(f'{liberated_count} mesas han sido liberadas.', 'success')
+        else:
+            flash('Ninguna de las mesas seleccionadas estaba en estado "Pagada" para ser liberada.', 'info')
+
+    elif action == 'cancel':
+        orders_to_cancel = Order.query.filter(Order.table_id.in_(table_ids), Order.status == OrderStatus.ACTIVE).all()
+        for order in orders_to_cancel:
+            table_id_to_update = order.table_id
+            for item in order.items:
+                if item.product and not item.display_name:
+                    item.product.stock += item.quantity
+            
+            if order.table_assigned:
+                order.table_assigned.status = TableStatus.EMPTY
+            
+            db.session.delete(order)
+            canceled_count += 1
+            # Corrección: Se quitó .value y se usó el estado correcto
+            socketio.emit('table_status_update', {'table_id': table_id_to_update, 'status': TableStatus.EMPTY})
+        if canceled_count > 0:
+            flash(f'Se cancelaron los pedidos de {canceled_count} mesas y se restauró el stock.', 'success')
+        else:
+            flash('Ninguna de las mesas seleccionadas tenía un pedido activo para cancelar.', 'info')
+            
+    db.session.commit()
+    return redirect(url_for('mozo.tables_view'))
+
+@admin_bp.route('/bulk_pay_tables', methods=['POST'])
+@mozo_required
+def bulk_pay_tables():
+    data = request.get_json()
+    table_ids = data.get('table_ids', [])
+    payment_method = data.get('payment_method')
+    
+    if not table_ids or not payment_method:
+        return jsonify({'success': False, 'message': 'Faltan datos para procesar el cobro.'}), 400
+    
+    try:
+        mesas_cobradas = 0
+        for table_id in table_ids:
+            table = Table.query.get(table_id)
+            if not table or table.status != TableStatus.OCCUPIED:
+                continue
+            
+            order = Order.query.filter_by(table_id=table.id, status=OrderStatus.ACTIVE).first()
+            if not order or not order.items:
+                continue
+            
+            order.status = OrderStatus.PAID
+            order.payment_method = payment_method
+            order.updated_at = datetime.utcnow()
+            table.status = TableStatus.PAID
+            
+            db.session.add(order)
+            db.session.add(table)
+            
+            # Corrección: Se quitó .value
+            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status})
+            mesas_cobradas += 1
+            
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'{mesas_cobradas} mesa(s) cobrada(s) correctamente.'})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error al cobrar mesas en lote: {str(e)}")
+        return jsonify({'success': False, 'message': 'Ocurrió un error en el servidor.'}), 500
