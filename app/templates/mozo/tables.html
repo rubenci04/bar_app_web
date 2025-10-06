@@ -42,7 +42,7 @@
         {% endfor %}
     </div>
 
-    <div id="bulk-actions-footer" class="hidden fixed sm:sticky bottom-0 left-0 right-0 sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">
+    <div id="bulk-actions-footer" class="hidden fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">
         <p class="text-sm sm:text-base font-semibold text-gray-700 dark:text-slate-200 text-center sm:text-left">
             <i class="fas fa-check-square mr-1 text-blue-500"></i>
             <span id="selected-count">0</span> mesa(s) seleccionada(s)
@@ -61,7 +61,6 @@
     </div>
 </form>
 
-<!-- Modal para elegir método de pago -->
 <div id="bulk-pay-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
     <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 fade-in">
         <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Cobrar Mesas Seleccionadas</h3>
@@ -97,16 +96,19 @@
 
         socket.on('table_status_update', function(data) {
             console.log('Table status update received:', data);
-            const tableCard = document.getElementById(`table-card-${data.table_id}`);
-            if (tableCard) {
-                const statusBadge = tableCard.querySelector('.status-badge');
-                const link = tableCard.querySelector('a');
+            // Pequeña corrección para seleccionar la tarjeta de mesa correctamente
+            const tableLabel = document.querySelector(`input[value="${data.table_id}"]`).closest('label');
+            if (tableLabel) {
+                const statusBadge = tableLabel.querySelector('.mt-2.text-sm.font-semibold');
+                const link = tableLabel.querySelector('a');
 
                 // Update status text
-                statusBadge.textContent = data.status;
+                if (statusBadge) {
+                    statusBadge.textContent = data.status;
+                }
 
                 // Update classes for status badge
-                statusBadge.className = 'status-badge mt-2 text-sm font-semibold py-1 px-2 rounded-full'; // Reset classes
+                statusBadge.className = 'mt-2 text-sm font-semibold py-1 px-2 rounded-full'; // Reset classes
                 if (data.status === 'Vacía') {
                     statusBadge.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900/50', 'dark:text-blue-300');
                 } else if (data.status === 'Ocupada') {
@@ -119,22 +121,23 @@
                 link.className = 'block p-3 sm:p-4 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target'; // Reset classes
                 if (data.status === 'Vacía') {
                     link.classList.add('border-gray-300', 'dark:border-gray-700', 'hover:border-blue-400', 'dark:hover:border-blue-500');
+                    link.classList.remove('pulse');
                 } else if (data.status === 'Ocupada') {
                     link.classList.add('border-yellow-400', 'dark:border-yellow-600', 'hover:border-yellow-500', 'pulse');
                 } else if (data.status === 'Pagada') {
                     link.classList.add('border-green-400', 'dark:border-green-600', 'hover:border-green-500');
+                    link.classList.remove('pulse');
                 }
+                // Actualizar la vista podría requerir recargar datos del pedido, pero para el estado es suficiente.
             }
         });
 
-        // Lógica para manejar la selección de mesas y mostrar/ocultar el menú de acciones.
         const checkboxes = document.querySelectorAll('.table-checkbox');
         const bulkActionsFooter = document.getElementById('bulk-actions-footer');
         const selectedCountSpan = document.getElementById('selected-count');
         const bulkActionButtons = document.querySelectorAll('.bulk-action-btn');
         const bulkActionInput = document.getElementById('bulk-action-input');
         const bulkActionForm = document.getElementById('bulk-action-form');
-        // --- COBRO EN LOTE ---
         const bulkPayBtn = document.getElementById('bulk-pay-btn');
         const bulkPayModal = document.getElementById('bulk-pay-modal');
         const closeBulkPayModalBtn = document.getElementById('close-bulk-pay-modal-btn');
@@ -152,7 +155,6 @@
         }
 
         checkboxes.forEach(checkbox => {
-            // Cada vez que se marca o desmarca un checkbox, actualizo el pie de página.
             checkbox.addEventListener('change', updateFooterVisibility);
         });
 
@@ -180,23 +182,19 @@
             });
         });
 
-        // Abro el modal para cobrar mesas seleccionadas.
         bulkPayBtn.addEventListener('click', function() {
             const selectedCount = document.querySelectorAll('.table-checkbox:checked').length;
             if (selectedCount === 0) {
                 showToast('Selecciona al menos una mesa para cobrar.', 'warning');
                 return;
             }
-            // Muestro el modal.
             bulkPayModal.classList.remove('hidden');
         });
 
-        // Cierro el modal.
         closeBulkPayModalBtn.addEventListener('click', function() {
             bulkPayModal.classList.add('hidden');
         });
 
-        // Manejo el envío del formulario de pago masivo.
         bulkPayForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const checkedBoxes = Array.from(document.querySelectorAll('.table-checkbox:checked'));
@@ -206,7 +204,6 @@
                 showToast('Selecciona un método de pago.', 'warning');
                 return;
             }
-            // Loader visual
             const submitBtn = bulkPayForm.querySelector('button[type="submit"]');
             setButtonLoading(submitBtn, true);
             
@@ -225,7 +222,9 @@
                 bulkPayModal.classList.add('hidden');
                 if (data.success) {
                     showToast(data.message || 'Mesas cobradas correctamente.', 'success');
-                    // No re-load, let socketio handle it
+                    // Deseleccionar checkboxes tras el éxito
+                    checkedBoxes.forEach(cb => cb.checked = false);
+                    updateFooterVisibility();
                 } else {
                     showToast(data.message || 'Error al cobrar las mesas.', 'danger');
                 }
@@ -236,7 +235,6 @@
             });
         });
 
-        // Evito que hacer clic en el link de la tarjeta active el checkbox.
         document.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', function(e) {
                 e.stopPropagation();

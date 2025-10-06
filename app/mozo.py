@@ -1,9 +1,9 @@
-# Archivo: app/mozo.py (Versión Corregida para solucionar el error de carga)
+# Archivo: app/mozo.py (Versión Final - Optimizada y Corregida)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from .models import Table, Product, Order, OrderItem, TableStatus, OrderStatus
 from . import db, socketio, cache
 from .utils import mozo_required
-from sqlalchemy.orm import selectinload # 'selectinload' se mantiene para otros usos
+from sqlalchemy.orm import joinedload
 from collections import OrderedDict
 from datetime import datetime
 
@@ -11,7 +11,6 @@ mozo_bp = Blueprint('mozo', __name__)
 
 @cache.memoize(timeout=600)
 def get_products_by_category():
-    # ... (esta función se mantiene igual, con caché)
     products_query = Product.query.filter(Product.stock > 0).order_by(Product.type, Product.name).all()
     products_by_cat = OrderedDict()
     preferred_categories = [
@@ -34,21 +33,20 @@ def get_products_by_category():
 @mozo_bp.route('/tables')
 @mozo_required
 def tables_view():
-    # ✅ CORRECCIÓN: Se revierte a la lógica original para evitar el crash.
-    # Esto soluciona el error 'InvalidRequestError' que me mostraste.
-    tables_query = Table.query.order_by(Table.number).all()
+    # ✅ VERSIÓN OPTIMIZADA (AHORA FUNCIONAL GRACIAS AL CAMBIO EN MODELS.PY)
+    tables_with_orders = db.session.query(Table).options(
+        joinedload(Table.orders.and_(Order.status == 'Activo'))
+    ).order_by(Table.number).all()
+
     tables_data = []
-    for table in tables_query:
-        active_order = Order.query.filter_by(table_id=table.id, status=OrderStatus.ACTIVE).first()
+    for table in tables_with_orders:
+        active_order = next((o for o in table.orders if o.status == 'Activo'), None)
         total_pedido_activo = active_order.total_amount if active_order else 0.0
         tables_data.append({
             'id': table.id, 'number': table.number, 'capacity': table.capacity,
             'status': table.status, 'total_pedido_activo': total_pedido_activo
         })
     return render_template('mozo/tables.html', tables_data=tables_data, title="Mesas del Restaurante")
-
-# ... (El resto del archivo, desde table_detail_view hasta el final, es correcto
-# y se mantiene con las correcciones anteriores, como la eliminación de '.value')
 
 @mozo_bp.route('/table/<int:table_id>')
 @mozo_required

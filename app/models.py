@@ -23,30 +23,11 @@ class OrderStatus:
     ANNULLED = 'Venta Anulada'
 # --- FIN DE CONSTANTES ---
 
-# --- CONSTANTES DE ESTADOS Y ROLES ---
-class UserRoles:
-    ADMIN = 'admin'
-    MOZO = 'mozo'
-
-class TableStatus:
-    EMPTY = 'Vacía'
-    OCCUPIED = 'Ocupada'
-    PAID = 'Pagada'
-
-class OrderStatus:
-    PENDING = 'Pendiente'
-    ACTIVE = 'Activo'
-    PAID = 'Pagado'
-    CANCELED = 'Cancelado'
-    ANNULLED = 'Venta Anulada'
-# --- FIN DE CONSTANTES ---
-
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default=UserRoles.MOZO)
-    # --- RELACIÓN AÑADIDA ---
     cash_sessions = db.relationship('CashSession', backref='user', lazy=True)
 
     def set_password(self, password):
@@ -68,7 +49,6 @@ class Product(db.Model):
     stock = db.Column(db.Integer, default=0)
     description = db.Column(db.String(300), nullable=True)
 
-    # Índice compuesto para optimizar las búsquedas por tipo y nombre
     __table_args__ = (
         db.Index('idx_product_type_name', 'type', 'name'),
     )
@@ -91,8 +71,11 @@ class Table(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer, unique=True, nullable=False)
     capacity = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(20), default=TableStatus.EMPTY) # Vacía, Ocupada, Pagada
-    orders = db.relationship('Order', back_populates='table_assigned', lazy='dynamic')
+    status = db.Column(db.String(20), default=TableStatus.EMPTY)
+    
+    # ✅ CORRECCIÓN DE RENDIMIENTO: Se cambia lazy='dynamic' por lazy='selectin'
+    # Esto permite que la carga optimizada (joinedload) funcione correctamente.
+    orders = db.relationship('Order', back_populates='table_assigned', lazy='selectin')
 
     def __repr__(self):
         return f'<Table {self.number}>'
@@ -100,8 +83,8 @@ class Table(db.Model):
 class Order(db.Model):
     __tablename__ = 'order'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    type = db.Column(db.String(20), nullable=False) # Mesa, Para Llevar
-    status = db.Column(db.String(20), nullable=False, default=OrderStatus.PENDING) # Pendiente, Activo, Pagado, Cancelado, Venta Anulada
+    type = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default=OrderStatus.PENDING)
     customer_name = db.Column(db.String(100), nullable=True)
     total_amount = db.Column(db.Float, nullable=True, default=0.0)
     payment_method = db.Column(db.String(50), nullable=True)
@@ -141,27 +124,24 @@ class OrderItem(db.Model):
     def __repr__(self):
         return f'<OrderItem {self.id}>'
 
-# --- MODELO PARA EL CIERRE DE CAJA ACTUALIZADO ---
 class CashSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     start_time = db.Column(db.DateTime, default=get_current_time)
     end_time = db.Column(db.DateTime, nullable=True)
     starting_cash = db.Column(db.Float, nullable=False)
-    counted_cash = db.Column(db.Float, nullable=True) # El dinero físico contado al final
+    counted_cash = db.Column(db.Float, nullable=True)
     
-    # Valores calculados por el sistema al momento del cierre
     cash_sales = db.Column(db.Float, nullable=True)
     card_sales = db.Column(db.Float, nullable=True)
     transfer_sales = db.Column(db.Float, nullable=True)
     total_sales = db.Column(db.Float, nullable=True)
     
-    # --- CAMPO NUEVO ---
     annulled_cash_sales = db.Column(db.Float, default=0.0)
 
-    expected_cash = db.Column(db.Float, nullable=True) # starting_cash + cash_sales - annulled_cash_sales
-    difference = db.Column(db.Float, nullable=True) # counted_cash - expected_cash
+    expected_cash = db.Column(db.Float, nullable=True)
+    difference = db.Column(db.Float, nullable=True)
     
-    status = db.Column(db.String(20), nullable=False, default='Abierta') # Abierta, Cerrada
+    status = db.Column(db.String(20), nullable=False, default='Abierta')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     notes = db.Column(db.Text, nullable=True)
 
