@@ -1,7 +1,7 @@
 # Archivo: app/mozo.py (Versión Corregida)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from .models import Table, Product, Order, OrderItem, TableStatus, OrderStatus
-from . import db
+from . import db, socketio
 from .utils import mozo_required
 from sqlalchemy.orm import selectinload
 from sqlalchemy import text
@@ -101,6 +101,7 @@ def start_table_order(table_id):
             db.session.add(new_order) # Añado el nuevo pedido a la sesión
             table.status = TableStatus.OCCUPIED
             db.session.commit() # Guardo todos los cambios
+            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
             flash('Nuevo pedido iniciado en la mesa.', 'success')
         except Exception as e:
             db.session.rollback()
@@ -238,6 +239,7 @@ def mark_order_paid(order_id):
         order.updated_at = datetime.utcnow()
         if order.table_assigned:
             order.table_assigned.status = TableStatus.PAID
+            socketio.emit('table_status_update', {'table_id': order.table_assigned.id, 'status': order.table_assigned.status.value})
         db.session.commit()
         flash(f'Pedido #{order.id} cobrado con {payment_method}. La mesa ahora está en estado "Pagada".', 'success')
     else:
@@ -254,6 +256,7 @@ def clear_table(table_id):
     if table.status == TableStatus.PAID:
         table.status = TableStatus.EMPTY
         db.session.commit()
+        socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
         flash(f'Mesa {table.number} liberada y lista para nuevos clientes.', 'success')
     else:
         flash(f'La mesa {table.number} no está en estado "Pagada".', 'warning')
@@ -275,6 +278,7 @@ def cancel_order(order_id):
         
         if order.table_assigned and order.table_assigned.status == TableStatus.OCCUPIED:
             order.table_assigned.status = TableStatus.EMPTY
+            socketio.emit('table_status_update', {'table_id': order.table_assigned.id, 'status': order.table_assigned.status.value})
         
         db.session.delete(order)
         db.session.commit()

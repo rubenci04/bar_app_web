@@ -1,7 +1,7 @@
 # Archivo: app/admin.py (Versión Completa y Corregida)
 import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response
-from . import db, cache
+from . import db, cache, socketio
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time, retry_on_db_error
 from datetime import datetime, date, timedelta
@@ -51,6 +51,9 @@ def dashboard():
         func.sum(OrderItem.quantity).label('total_quantity')
     ).join(OrderItem).group_by(Product.name).order_by(func.sum(OrderItem.quantity).desc()).limit(5).all()
 
+    top_products_labels = [p.name for p in top_products]
+    top_products_data = [p.total_quantity for p in top_products]
+
     return render_template('admin/dashboard.html', 
         title="Panel de Administrador",
         total_sales_today=total_sales_today,
@@ -59,7 +62,9 @@ def dashboard():
         sales_today_takeaway=sales_today_takeaway,
         active_orders_count=active_orders_count,
         tables_occupied_count=tables_occupied_count,
-        top_products=top_products
+        top_products=top_products,
+        top_products_labels=json.dumps(top_products_labels),
+        top_products_data=json.dumps(top_products_data)
     )
 
 @admin_bp.route('/products')
@@ -662,6 +667,7 @@ def bulk_action_tables():
         for table in tables_to_liberate:
             table.status = TableStatus.EMPTY
             liberated_count += 1
+            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
         if liberated_count > 0:
             flash(f'{liberated_count} mesas han sido liberadas.', 'success')
         else:
@@ -670,6 +676,7 @@ def bulk_action_tables():
     elif action == 'cancel':
         orders_to_cancel = Order.query.filter(Order.table_id.in_(table_ids), Order.status == OrderStatus.ACTIVE).all()
         for order in orders_to_cancel:
+            table_id = order.table_id
             for item in order.items:
                 if item.product and not item.display_name:
                     item.product.stock += item.quantity
@@ -679,6 +686,7 @@ def bulk_action_tables():
             
             db.session.delete(order)
             canceled_count += 1
+            socketio.emit('table_status_update', {'table_id': table_id, 'status': TableStatus.EMPTY.value})
         if canceled_count > 0:
             flash(f'Se cancelaron los pedidos de {canceled_count} mesas y se restauró el stock.', 'success')
         else:
@@ -710,6 +718,7 @@ def bulk_pay_tables():
             db.session.add(order)
             db.session.add(table)
             mesas_cobradas += 1
+            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
         db.session.commit()
         return jsonify({'success': True, 'message': f'{mesas_cobradas} mesas cobradas correctamente.'})
     except Exception as e:

@@ -86,13 +86,47 @@
 
 {% block scripts %}
 {{ super() }}
+<script src="https://cdn.socket.io/4.5.2/socket.io.min.js"></script>
 <script>
-    // Refresco automático de la página cada 30 segundos.
-    setTimeout(function(){
-        window.location.reload(1);
-    }, 30000);
-
     document.addEventListener('DOMContentLoaded', function() {
+        var socket = io();
+
+        socket.on('connect', function() {
+            console.log('Connected to WebSocket');
+        });
+
+        socket.on('table_status_update', function(data) {
+            console.log('Table status update received:', data);
+            const tableCard = document.getElementById(`table-card-${data.table_id}`);
+            if (tableCard) {
+                const statusBadge = tableCard.querySelector('.status-badge');
+                const link = tableCard.querySelector('a');
+
+                // Update status text
+                statusBadge.textContent = data.status;
+
+                // Update classes for status badge
+                statusBadge.className = 'status-badge mt-2 text-sm font-semibold py-1 px-2 rounded-full'; // Reset classes
+                if (data.status === 'Vacía') {
+                    statusBadge.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900/50', 'dark:text-blue-300');
+                } else if (data.status === 'Ocupada') {
+                    statusBadge.classList.add('bg-yellow-100', 'text-yellow-800', 'dark:bg-yellow-900/50', 'dark:text-yellow-300');
+                } else if (data.status === 'Pagada') {
+                    statusBadge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900/50', 'dark:text-green-300');
+                }
+
+                // Update classes for link border
+                link.className = 'block p-3 sm:p-4 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target'; // Reset classes
+                if (data.status === 'Vacía') {
+                    link.classList.add('border-gray-300', 'dark:border-gray-700', 'hover:border-blue-400', 'dark:hover:border-blue-500');
+                } else if (data.status === 'Ocupada') {
+                    link.classList.add('border-yellow-400', 'dark:border-yellow-600', 'hover:border-yellow-500', 'pulse');
+                } else if (data.status === 'Pagada') {
+                    link.classList.add('border-green-400', 'dark:border-green-600', 'hover:border-green-500');
+                }
+            }
+        });
+
         // Lógica para manejar la selección de mesas y mostrar/ocultar el menú de acciones.
         const checkboxes = document.querySelectorAll('.table-checkbox');
         const bulkActionsFooter = document.getElementById('bulk-actions-footer');
@@ -191,7 +225,7 @@
                 bulkPayModal.classList.add('hidden');
                 if (data.success) {
                     showToast(data.message || 'Mesas cobradas correctamente.', 'success');
-                    setTimeout(() => window.location.reload(), 1000);
+                    // No re-load, let socketio handle it
                 } else {
                     showToast(data.message || 'Error al cobrar las mesas.', 'danger');
                 }

@@ -53,18 +53,71 @@
     </div>
     <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Top 5 Productos Más Vendidos</h2>
-        {% if top_products %}
-        <ul class="space-y-3">
-            {% for product in top_products %}
-            <li class="flex justify-between items-center text-gray-600 dark:text-gray-300">
-                <span>{{ loop.index }}. {{ product.name }}</span>
-                <span class="font-bold text-blue-600 dark:text-blue-500">{{ product.total_quantity }} <small>unidades</small></span>
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-gray-400 dark:text-gray-500 text-center py-4">Aún no hay datos de ventas para mostrar un ranking.</p>
-        {% endif %}
+        <div style="position: relative; height: 320px;"> <!-- Contenedor para el gráfico con altura definida -->
+            {% if top_products %}
+            <canvas id="topProductsChart"></canvas>
+            {% else %}
+            <p class="text-gray-400 dark:text-gray-500 text-center py-4">Aún no hay datos de ventas para mostrar un ranking.</p>
+            {% endif %}
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDark ? '#E5E7EB' : '#374151';
+
+    {% if top_products %}
+    const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
+    new Chart(topProductsCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ top_products_labels | safe }},
+            datasets: [{
+                label: 'Cantidad Vendida',
+                data: {{ top_products_data | safe }},
+                backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: textColor,
+                        stepSize: 1
+                    },
+                    grid: {
+                        color: gridColor
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: textColor
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
 {% endblock %}

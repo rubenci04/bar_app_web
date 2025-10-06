@@ -8,6 +8,7 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf
 from datetime import datetime
 import click
 from flask_caching import Cache
+from flask_socketio import SocketIO
 
 # Inicialización de extensiones
 db = SQLAlchemy()
@@ -15,6 +16,7 @@ migrate = Migrate()
 login_manager = LoginManager()
 csrf = CSRFProtect()
 cache = Cache()
+socketio = SocketIO()
 
 DB_NAME = "bar_app.db"
 
@@ -63,6 +65,7 @@ def create_app():
     login_manager.init_app(app)
     csrf.init_app(app)
     cache.init_app(app)
+    socketio.init_app(app)
 
     from .db_utils import register_commands
     register_commands(app)
@@ -86,6 +89,7 @@ def create_app():
     app.register_blueprint(mozo_bp, url_prefix='/mozo')
 
     from .models import User, Product, Table, Order, OrderItem, CashSession
+    from . import events
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -185,4 +189,4 @@ def create_app():
                 return redirect(url_for('mozo.tables_view'))
         return redirect(url_for('auth.login'))
         
-    return app
+    return app, socketio
