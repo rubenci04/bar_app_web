@@ -1,9 +1,12 @@
+# requirements.txt
+
 alembic==1.16.4
 bcrypt==4.3.0
 blinker==1.9.0
 click==8.2.1
 colorama==0.4.6
-eventlet==0.33.3
+# ✅ CORRECCIÓN 1: Actualiza la versión de eventlet
+eventlet==0.35.2
 Flask==3.1.1
 Flask-Login==0.6.3
 Flask-Migrate==4.1.0
@@ -11,7 +14,8 @@ Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.2
 Flask-Caching==2.1.0
 Flask-SocketIO==5.3.6
-greenlet==3.2.3
+# ✅ CORRECCIÓN 2 (Opcional pero recomendado): Actualiza greenlet con eventlet
+greenlet==3.0.3
 gunicorn==23.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
@@ -22,8 +26,10 @@ pillow==11.3.0
 Pillow-PIL==0.1.dev0
 psycopg2-binary==2.9.10
 python-dotenv==1.1.1
+pytz==2024.1
+# ✅ CORRECCIÓN 3: Añade setuptools al final
+setuptools
 SQLAlchemy==2.0.42
 typing_extensions==4.14.1
 Werkzeug==3.1.3
 WTForms==3.2.1
-pytz==2024.1
