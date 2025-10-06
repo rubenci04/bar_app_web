@@ -3,7 +3,8 @@ services:
     name: bar-app-web
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app
+    # ✅ CORRECCIÓN: Se cambia el comando de inicio para usar 'eventlet'
+    startCommand: gunicorn -k eventlet -w 1 run:app
     plan: free
     envVars:
       - key: PYTHON_VERSION

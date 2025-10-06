@@ -32,14 +32,11 @@ def invalidate_product_cache():
     cache.delete_memoized(get_distinct_categories)
     current_app.logger.info("Caché de categorías de productos invalidado.")
 
-# Reemplaza la función dashboard completa en app/admin.py
-
 @admin_bp.route('/dashboard')
 @admin_required
 def dashboard():
     today = date.today()
     
-    # Restauro estas 3 líneas para calcular las ventas del día desglosadas
     total_sales_today = db.session.query(func.sum(Order.total_amount)).filter(func.date(Order.updated_at) == today, Order.status == OrderStatus.PAID).scalar() or 0.0
     sales_today_table = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == OrderStatus.PAID, Order.type == 'Mesa').scalar() or 0.0
     sales_today_takeaway = db.session.query(func.sum(Order.total_amount)).filter(db.func.date(Order.updated_at) == today, Order.status == OrderStatus.PAID, Order.type == 'Para Llevar').scalar() or 0.0
@@ -57,7 +54,6 @@ def dashboard():
     return render_template('admin/dashboard.html', 
         title="Panel de Administrador",
         total_sales_today=total_sales_today,
-        # Me aseguro de pasar las variables a la plantilla
         sales_today_table=sales_today_table,
         sales_today_takeaway=sales_today_takeaway,
         active_orders_count=active_orders_count,
@@ -91,6 +87,8 @@ def products():
         search_category_value=search_category,
         distinct_categories_for_filter=get_distinct_categories()
     )
+
+# ... (Las funciones add_product, edit_product, delete_product y sales_and_reports se mantienen sin cambios)
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
 @mozo_required
@@ -217,11 +215,9 @@ def delete_product(product_id):
 def sales_and_reports():
     page = request.args.get('page', 1, type=int)
     period = request.args.get('period', 'today')
-    # (El resto de la lógica de filtros y fechas se mantiene)
     now = get_current_time()
     start_date, end_date = None, None
     
-    # Lógica de fechas (sin cambios)
     reference_date = now.date()
     if period == 'today':
         start_date = datetime.combine(reference_date, datetime.min.time())
@@ -243,15 +239,12 @@ def sales_and_reports():
         start_date = datetime.combine(start_of_year, datetime.min.time())
         end_date = datetime.combine(end_of_year, datetime.max.time())
 
-    # --- AQUÍ EMPIEZA LA LÓGICA COMPLETA ---
     stats_query = Order.query.filter(Order.status == OrderStatus.PAID, Order.updated_at.between(start_date, end_date))
     
-    # 1. Cálculos para las tarjetas superiores
     total_ingresos = stats_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
     total_pedidos = stats_query.count()
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
 
-    # 2. Datos para Gráfico de Ventas por Día (y tabla)
     ventas_por_dia = stats_query.with_entities(
         func.date(Order.updated_at).label('dia'),
         func.sum(Order.total_amount).label('total_diario')
@@ -265,7 +258,6 @@ def sales_and_reports():
         sales_by_day_labels.append(dia_obj.strftime('%d/%m'))
     sales_by_day_data = [v.total_diario for v in ventas_por_dia]
 
-    # 3. Datos para Gráfico y Tabla de Top Productos
     base_items_query = OrderItem.query.join(Order).filter(Order.id.in_([o.id for o in stats_query.all()]))
     ranking_productos = base_items_query.join(Product).with_entities(
         Product.name, func.sum(OrderItem.quantity).label('total_quantity')
@@ -274,7 +266,6 @@ def sales_and_reports():
     top_products_labels = [p.name for p in ranking_productos]
     top_products_data = [p.total_quantity for p in ranking_productos]
     
-    # 4. RESTAURO LOS CÁLCULOS PARA LAS OTRAS TABLAS
     categorias_populares = base_items_query.join(Product).with_entities(
         Product.type,
         func.sum(OrderItem.subtotal).label('total_revenue')
@@ -286,7 +277,6 @@ def sales_and_reports():
         func.sum(Order.total_amount).label('total')
     ).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
 
-    # 5. Registro detallado de ventas (Paginación)
     log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED])).order_by(Order.updated_at.desc())
     pagination = log_query.paginate(page=page, per_page=15, error_out=False)
 
@@ -298,20 +288,15 @@ def sales_and_reports():
         total_pedidos=total_pedidos,
         promedio_por_pedido=promedio_por_pedido,
         pagination=pagination,
-        # Restauro las variables que faltaban
         ranking_productos=ranking_productos,
         ventas_por_dia=ventas_por_dia,
         categorias_populares=categorias_populares,
         payment_methods_summary=payment_methods_summary,
-        # Datos para los gráficos
         sales_by_day_labels=json.dumps(sales_by_day_labels),
         sales_by_day_data=json.dumps(sales_by_day_data),
         top_products_labels=json.dumps(top_products_labels),
         top_products_data=json.dumps(top_products_data)
     )
-
-# ... (El resto de las funciones: sale_detail_view, annul_sale, manage_tables, etc., se mantienen igual que en la versión que ya tienes y funciona)
-# ... Pega aquí el resto de tus funciones desde @admin_bp.route('/sale/detail/<int:order_id>') hasta el final del archivo.
 
 @admin_bp.route('/sale/detail/<int:order_id>')
 @admin_required
@@ -667,85 +652,7 @@ def bulk_action_tables():
         for table in tables_to_liberate:
             table.status = TableStatus.EMPTY
             liberated_count += 1
-            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
-        if liberated_count > 0:
-            flash(f'{liberated_count} mesas han sido liberadas.', 'success')
-        else:
-            flash('Ninguna de las mesas seleccionadas estaba en estado "Pagada" para ser liberada.', 'info')
-
-    elif action == 'cancel':
-        orders_to_cancel = Order.query.filter(Order.table_id.in_(table_ids), Order.status == OrderStatus.ACTIVE).all()
-        for order in orders_to_cancel:
-            table_id = order.table_id
-            for item in order.items:
-                if item.product and not item.display_name:
-                    item.product.stock += item.quantity
-            
-            if order.table_assigned:
-                order.table_assigned.status = TableStatus.EMPTY
-            
-            db.session.delete(order)
-            canceled_count += 1
-            socketio.emit('table_status_update', {'table_id': table_id, 'status': TableStatus.EMPTY.value})
-        if canceled_count > 0:
-            flash(f'Se cancelaron los pedidos de {canceled_count} mesas y se restauró el stock.', 'success')
-        else:
-            flash('Ninguna de las mesas seleccionadas tenía un pedido activo para cancelar.', 'info')
-            
-    db.session.commit()
-    return redirect(url_for('mozo.tables_view'))
-
-@admin_bp.route('/bulk_pay_tables', methods=['POST'])
-@mozo_required
-def bulk_pay_tables():
-    data = request.get_json()
-    table_ids = data.get('table_ids', [])
-    payment_method = data.get('payment_method')
-    if not table_ids or not payment_method:
-        return jsonify({'success': False, 'message': 'Faltan datos para procesar el cobro.'}), 400
-    try:
-        mesas_cobradas = 0
-        for table_id in table_ids:
-            table = Table.query.get(table_id)
-            if not table or table.status != TableStatus.OCCUPIED:
-                continue
-            order = Order.query.filter_by(table_id=table.id, status=OrderStatus.ACTIVE).first()
-            if not order:
-                continue
-            order.status = OrderStatus.PAID
-            order.payment_method = payment_method
-            table.status = TableStatus.PAID
-            db.session.add(order)
-            db.session.add(table)
-            mesas_cobradas += 1
-            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
-        db.session.commit()
-        return jsonify({'success': True, 'message': f'{mesas_cobradas} mesas cobradas correctamente.'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': f'Error al cobrar las mesas: {str(e)}'}), 500
-
-@admin_bp.route('/tables/bulk_action', methods=['POST'])
-@mozo_required
-def bulk_action_tables():
-    action = request.form.get('action')
-    table_ids = request.form.getlist('table_ids')
-
-    if not action or not table_ids:
-        flash('No se seleccionó ninguna acción o ninguna mesa.', 'warning')
-        return redirect(url_for('mozo.tables_view'))
-
-    table_ids = [int(id) for id in table_ids]
-    
-    liberated_count = 0
-    canceled_count = 0
-
-    if action == 'liberate':
-        tables_to_liberate = Table.query.filter(Table.id.in_(table_ids), Table.status == TableStatus.PAID).all()
-        for table in tables_to_liberate:
-            table.status = TableStatus.EMPTY
-            liberated_count += 1
-            # Corrección: Se quitó .value
+            # ✅ CORRECCIÓN: Se elimina '.value'
             socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status})
         if liberated_count > 0:
             flash(f'{liberated_count} mesas han sido liberadas.', 'success')
@@ -765,7 +672,7 @@ def bulk_action_tables():
             
             db.session.delete(order)
             canceled_count += 1
-            # Corrección: Se quitó .value y se usó el estado correcto
+            # ✅ CORRECCIÓN: Se elimina '.value' y se envía el estado correcto
             socketio.emit('table_status_update', {'table_id': table_id_to_update, 'status': TableStatus.EMPTY})
         if canceled_count > 0:
             flash(f'Se cancelaron los pedidos de {canceled_count} mesas y se restauró el stock.', 'success')
@@ -804,7 +711,7 @@ def bulk_pay_tables():
             db.session.add(order)
             db.session.add(table)
             
-            # Corrección: Se quitó .value
+            # ✅ CORRECCIÓN: Se elimina '.value'
             socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status})
             mesas_cobradas += 1
             

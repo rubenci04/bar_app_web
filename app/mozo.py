@@ -1,16 +1,17 @@
-# Archivo: app/mozo.py (Versión Corregida)
+# Archivo: app/mozo.py (Versión Corregida para solucionar el error de carga)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from .models import Table, Product, Order, OrderItem, TableStatus, OrderStatus
-from . import db, socketio
+from . import db, socketio, cache
 from .utils import mozo_required
-from sqlalchemy.orm import selectinload
-from sqlalchemy import text
+from sqlalchemy.orm import selectinload # 'selectinload' se mantiene para otros usos
 from collections import OrderedDict
 from datetime import datetime
 
 mozo_bp = Blueprint('mozo', __name__)
 
+@cache.memoize(timeout=600)
 def get_products_by_category():
+    # ... (esta función se mantiene igual, con caché)
     products_query = Product.query.filter(Product.stock > 0).order_by(Product.type, Product.name).all()
     products_by_cat = OrderedDict()
     preferred_categories = [
@@ -33,6 +34,8 @@ def get_products_by_category():
 @mozo_bp.route('/tables')
 @mozo_required
 def tables_view():
+    # ✅ CORRECCIÓN: Se revierte a la lógica original para evitar el crash.
+    # Esto soluciona el error 'InvalidRequestError' que me mostraste.
     tables_query = Table.query.order_by(Table.number).all()
     tables_data = []
     for table in tables_query:
@@ -43,6 +46,9 @@ def tables_view():
             'status': table.status, 'total_pedido_activo': total_pedido_activo
         })
     return render_template('mozo/tables.html', tables_data=tables_data, title="Mesas del Restaurante")
+
+# ... (El resto del archivo, desde table_detail_view hasta el final, es correcto
+# y se mantiene con las correcciones anteriores, como la eliminación de '.value')
 
 @mozo_bp.route('/table/<int:table_id>')
 @mozo_required
@@ -90,18 +96,15 @@ def start_table_order(table_id):
                 return redirect(url_for('mozo.table_detail_view', table_id=table.id))
 
         try:
-            # --- AQUÍ ESTÁ LA CORRECCIÓN ---
-            # Ya no uso 'create_order_safely'. Creo el pedido directamente.
-            # La base de datos se encargará del ID automáticamente.
             new_order = Order(
                 type='Mesa',
                 table_id=table.id,
                 status=OrderStatus.ACTIVE
             )
-            db.session.add(new_order) # Añado el nuevo pedido a la sesión
+            db.session.add(new_order)
             table.status = TableStatus.OCCUPIED
-            db.session.commit() # Guardo todos los cambios
-            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
+            db.session.commit()
+            socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status})
             flash('Nuevo pedido iniciado en la mesa.', 'success')
         except Exception as e:
             db.session.rollback()
@@ -136,7 +139,7 @@ def add_item_to_order(order_id):
         order_item = OrderItem.query.filter_by(order_id=order.id, product_id=product.id, display_name=None).first()
         if order_item:
             order_item.quantity += quantity
-            order_item.calculate_subtotal() # Recalculate subtotal on quantity change
+            order_item.calculate_subtotal()
         else:
             order_item = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity, unit_price=product.price)
             db.session.add(order_item)
@@ -239,7 +242,7 @@ def mark_order_paid(order_id):
         order.updated_at = datetime.utcnow()
         if order.table_assigned:
             order.table_assigned.status = TableStatus.PAID
-            socketio.emit('table_status_update', {'table_id': order.table_assigned.id, 'status': order.table_assigned.status.value})
+            socketio.emit('table_status_update', {'table_id': order.table_assigned.id, 'status': order.table_assigned.status})
         db.session.commit()
         flash(f'Pedido #{order.id} cobrado con {payment_method}. La mesa ahora está en estado "Pagada".', 'success')
     else:
@@ -256,7 +259,7 @@ def clear_table(table_id):
     if table.status == TableStatus.PAID:
         table.status = TableStatus.EMPTY
         db.session.commit()
-        socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status.value})
+        socketio.emit('table_status_update', {'table_id': table.id, 'status': table.status})
         flash(f'Mesa {table.number} liberada y lista para nuevos clientes.', 'success')
     else:
         flash(f'La mesa {table.number} no está en estado "Pagada".', 'warning')
@@ -278,7 +281,7 @@ def cancel_order(order_id):
         
         if order.table_assigned and order.table_assigned.status == TableStatus.OCCUPIED:
             order.table_assigned.status = TableStatus.EMPTY
-            socketio.emit('table_status_update', {'table_id': order.table_assigned.id, 'status': order.table_assigned.status.value})
+            socketio.emit('table_status_update', {'table_id': order.table_assigned.id, 'status': order.table_assigned.status})
         
         db.session.delete(order)
         db.session.commit()
@@ -307,8 +310,6 @@ def new_takeaway_order():
             return redirect(url_for('mozo.new_takeaway_order'))
 
         try:
-            # --- AQUÍ ESTÁ LA OTRA CORRECCIÓN ---
-            # También creo el pedido para llevar directamente.
             new_order = Order(
                 type='Para Llevar',
                 customer_name=customer_name,

@@ -482,3 +482,10 @@ html {
     height: 48px;
     border-width: 4px;
 }
+
+/* ✅ CORRECCIÓN: Estilos para evitar que las alertas se desborden */
+.alert-message-wrapper {
+  overflow-wrap: break-word; /* Soporte estándar */
+  word-wrap: break-word;     /* Soporte antiguo */
+  word-break: break-word;    /* Para palabras muy largas sin espacios */
+}
