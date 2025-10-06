@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title | default('Inicio') }} - Don Enrique Bar-Gestión</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}?v=1.1">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}?v=1.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}?v=1.2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}?v=1.2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -41,7 +41,7 @@
                            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 flex items-center
                            {% if request.endpoint == 'mozo.takeaway_orders_view' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}"><i class="fa-solid fa-bag-shopping mr-2"></i>Para Llevar</a>
                         
-                                <a href="{{ url_for('admin.products') }}" 
+                        <a href="{{ url_for('admin.products') }}" 
                            class="px-3 py-2 rounded-md text-sm font-bold text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 flex items-center
                            {% if request.endpoint == 'admin.products' %} underline decoration-orange-500 decoration-2 underline-offset-4 {% endif %}"><i class="fa-solid fa-box mr-2"></i>Productos</a>
 
@@ -68,13 +68,11 @@
                             <i class="fa-solid fa-right-from-bracket mr-1"></i>Salir
                         </a>
                     {% endif %}
-
                 <button id="theme-toggle" type="button" title="Cambiar modo claro/oscuro" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
                     <i class="fas fa-sun dark:hidden"></i>
                     <i class="fas fa-moon hidden dark:inline"></i>
                 </button>
                 </div>
-
                 <div class="md:hidden flex items-center space-x-2">
                     <button id="mobile-menu-button" aria-expanded="false" aria-label="Abrir menú principal" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500 transition-colors">
                         <i class="fa-solid fa-bars text-xl"></i>
@@ -82,8 +80,62 @@
                 </div>
         </div>
     </div>
+
     <div class="md:hidden hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 overflow-hidden" style="max-height: 0" id="mobile-menu">
+        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('mozo.tables_view') }}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 {% if request.endpoint == 'mozo.tables_view' %}bg-orange-50 dark:bg-gray-700{% endif %}">
+                   <i class="fa-solid fa-table mr-2"></i>Mesas
+                </a>
+                <a href="{{ url_for('mozo.takeaway_orders_view') }}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 {% if request.endpoint == 'mozo.takeaway_orders_view' %}bg-orange-50 dark:bg-gray-700{% endif %}">
+                   <i class="fa-solid fa-bag-shopping mr-2"></i>Para Llevar
+                </a>
+                
+                <a href="{{ url_for('admin.products') }}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 {% if request.endpoint == 'admin.products' %}bg-orange-50 dark:bg-gray-700{% endif %}">
+                   <i class="fa-solid fa-box mr-2"></i>Productos
+                </a>
+
+                {% if current_user.role == 'admin' %}
+                    <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                    
+                    {% set nav_links = {
+                        'Dashboard': ['admin.dashboard', 'fa-tachometer-alt'],
+                        'Ventas y Reportes': ['admin.sales_and_reports', 'fa-chart-line'],
+                        'Gestionar Mesas': ['admin.manage_tables', 'fa-grip-vertical'],
+                        'Usuarios': ['admin.manage_users', 'fa-users'],
+                        'Caja Diaria': ['admin.cash_drawer', 'fa-cash-register']
+                    } %}
+                    
+                    {% for name, info in nav_links.items() %}
+                    <a href="{{ url_for(info[0]) }}"
+                       class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {% if request.endpoint == info[0] %}bg-gray-50 dark:bg-gray-700{% endif %}">
+                       <i class="fa-solid {{ info[1] }} mr-2"></i>{{ name }}
+                    </a>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                
+                <button id="theme-toggle-mobile" type="button" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <i class="fas fa-sun dark:hidden mr-2"></i>
+                    <i class="fas fa-moon hidden dark:inline mr-2"></i>
+                    <span class="dark:hidden">Modo Oscuro</span>
+                    <span class="hidden dark:inline">Modo Claro</span>
+                </button>
+                
+                <a href="{{ url_for('auth.logout') }}" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40">
+                    <i class="fa-solid fa-right-from-bracket mr-2"></i>Salir
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i>Iniciar Sesión
+                </a>
+            {% endif %}
         </div>
+    </div>
 </nav>
     
     <main class="max-w-7xl mx-auto mt-4 sm:mt-6 px-4 sm:px-6 lg:px-8 py-4 pb-24 sm:pb-4">
@@ -111,7 +163,60 @@
     <div id="toast-container" class="fixed bottom-5 right-5 z-[100] w-full max-w-xs space-y-3"></div>
     
     {% block scripts %}
-    {% endblock %}
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=1.2"></script>
+    <script src="{{ url_for('static', filename='js/form_validation.js') }}?v=1.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const colors = {
+                success: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
+                danger: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700',
+                warning: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700',
+                info: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+            };
+            
+            const icons = {
+                success: 'fa-check-circle',
+                danger: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast p-4 mb-3 rounded-lg shadow-lg ${colors[type]} border flex items-center gap-3`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type]} text-lg flex-shrink-0"></i>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-2 text-current opacity-70 hover:opacity-100 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            const removeToast = () => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            };
+            
+            setTimeout(removeToast, 4000);
+        }
+        
+        function setButtonLoading(button, loading = true) {
+            if (loading) {
+                button.disabled = true;
+                button.dataset.originalText = button.innerHTML;
+                button.innerHTML = '<span class="spinner inline-block mr-2"></span>Procesando...';
+            } else {
+                button.disabled = false;
+                button.innerHTML = button.dataset.originalText || button.innerHTML;
+            }
+        }
+    </script>
+{% endblock %}
 
 </body>
 </html>
