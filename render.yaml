@@ -2,7 +2,7 @@ services:
   - type: web
     name: bar-app-web
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: npm install && npx tailwindcss -i ./app/static/css/input.css -o ./app/static/css/output.css --minify && pip install -r requirements.txt
     # ✅ CORRECCIÓN: Se cambia el comando de inicio para usar 'eventlet'
     startCommand: gunicorn -k eventlet -w 1 run:app
     plan: free
