@@ -39,21 +39,6 @@
         </label>
         {% endfor %}
     </div>
-
-    <div id="bulk-actions-footer" class="hidden fixed bottom-0 inset-x-0 sm:relative sm:bottom-auto sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">
-        <p class="text-sm sm:text-base font-semibold text-gray-700 dark:text-slate-200 text-center sm:text-left">
-            <i class="fas fa-check-square mr-1 text-green-500"></i>
-            <span id="selected-count">0</span> pedido(s) seleccionado(s)
-        </p>
-        <div class="flex gap-2 sm:gap-3 flex-wrap justify-center w-full sm:w-auto">
-            <button type="button" id="bulk-pay-btn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-all text-xs sm:text-sm touch-target">
-                <i class="fa-solid fa-dollar-sign mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cobrar Seleccionados</span><span class="xs:hidden">Cobrar</span>
-            </button>
-            <button type="button" data-action="cancel" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-all text-xs sm:text-sm touch-target">
-                <i class="fa-solid fa-times mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cancelar</span><span class="xs:hidden">Cancelar</span>
-            </button>
-        </div>
-    </div>
 </form>
 {% else %}
 <div class="text-center py-12 fade-in">
@@ -81,6 +66,23 @@
                 <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors">Confirmar Pago</button>
             </div>
         </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block fixed_footer %}
+<div id="bulk-actions-footer" class="hidden fixed bottom-0 inset-x-0 sm:relative sm:bottom-auto sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">
+    <p class="text-sm sm:text-base font-semibold text-gray-700 dark:text-slate-200 text-center sm:text-left">
+        <i class="fas fa-check-square mr-1 text-green-500"></i>
+        <span id="selected-count">0</span> pedido(s) seleccionado(s)
+    </p>
+    <div class="flex gap-2 sm:gap-3 flex-wrap justify-center w-full sm:w-auto">
+        <button type="button" id="bulk-pay-btn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-all text-xs sm:text-sm touch-target">
+            <i class="fa-solid fa-dollar-sign mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cobrar Seleccionados</span><span class="xs:hidden">Cobrar</span>
+        </button>
+        <button type="button" data-action="cancel" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-all text-xs sm:text-sm touch-target">
+            <i class="fa-solid fa-times mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cancelar</span><span class="xs:hidden">Cancelar</span>
+        </button>
     </div>
 </div>
 {% endblock %}
