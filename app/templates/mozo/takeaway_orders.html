@@ -184,9 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             fetch("{{ url_for('mozo.bulk_pay_orders') }}", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': bulkPayForm.querySelector('[name="csrf_token"]').value
+                },
                 body: JSON.stringify({
-                    csrf_token: bulkPayForm.querySelector('[name="csrf_token"]').value,
                     order_ids: orderIds,
                     payment_method: paymentMethod
                 })
