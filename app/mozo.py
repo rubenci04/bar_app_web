@@ -297,7 +297,7 @@ def cancel_order(order_id):
 def takeaway_orders_view():
     orders = Order.query.filter(
         Order.type == 'Para Llevar',
-        Order.status.in_([OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.CANCELED])
+        Order.status == OrderStatus.PENDING
     ).order_by(Order.created_at.desc()).all()
     return render_template('mozo/takeaway_orders.html', orders=orders, title="Pedidos para Llevar")
 
