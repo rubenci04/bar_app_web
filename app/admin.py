@@ -1,6 +1,6 @@
 # Archivo: app/admin.py (Versión Completa y Corregida)
 import json
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response, jsonify
 from . import db, cache, socketio
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time, retry_on_db_error
