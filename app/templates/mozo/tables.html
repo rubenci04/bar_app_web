@@ -210,9 +210,11 @@
             
             fetch("{{ url_for('admin.bulk_pay_tables') }}", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': bulkPayForm.querySelector('[name="csrf_token"]').value
+                },
                 body: JSON.stringify({
-                    csrf_token: bulkPayForm.querySelector('[name="csrf_token"]').value,
                     table_ids: tableIds,
                     payment_method: paymentMethod
                 })
