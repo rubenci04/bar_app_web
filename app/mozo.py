@@ -295,7 +295,10 @@ def cancel_order(order_id):
 @mozo_bp.route('/takeaway')
 @mozo_required
 def takeaway_orders_view():
-    orders = Order.query.filter_by(type='Para Llevar', status=OrderStatus.PENDING).order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter(
+        Order.type == 'Para Llevar',
+        Order.status.in_([OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.CANCELED])
+    ).order_by(Order.created_at.desc()).all()
     return render_template('mozo/takeaway_orders.html', orders=orders, title="Pedidos para Llevar")
 
 @mozo_bp.route('/takeaway/new', methods=['GET', 'POST'])
@@ -423,15 +426,24 @@ def takeaway_bulk_action():
     elif action == 'cancel':
         for order in orders:
             if order.status == OrderStatus.PENDING:
-                for item in order.items:
-                    if item.product and not item.display_name:
-                        item.product.stock += item.quantity
+                # No se devuelve el stock al anular
+                order.status = OrderStatus.CANCELED
+                order.updated_at = datetime.utcnow()
+                count += 1
+        if count > 0:
+            flash(f'{count} pedido(s) anulado(s) correctamente.', 'success')
+        else:
+            flash('Ningún pedido seleccionado era válido para anular.', 'info')
+
+    elif action == 'clear':
+        for order in orders:
+            if order.status in [OrderStatus.PAID, OrderStatus.CANCELED]:
                 db.session.delete(order)
                 count += 1
         if count > 0:
-            flash(f'{count} pedidos cancelados y eliminados. El stock ha sido restaurado.', 'success')
+            flash(f'{count} pedido(s) liberado(s) y eliminado(s) de la vista.', 'success')
         else:
-            flash('Ningún pedido seleccionado era válido para ser cancelado.', 'info')
+            flash('Solo los pedidos pagados o anulados pueden ser liberados.', 'info')
             
     db.session.commit()
     return redirect(url_for('mozo.takeaway_orders_view'))
