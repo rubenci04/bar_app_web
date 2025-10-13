@@ -1,9 +1,9 @@
-# Archivo: app/mozo.py (Versión Final - Optimizada y Corregida)
+# Archivo: app/mozo.py (Versión Final - Optimizada y Corregida con Evento de Cocina)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from .models import Table, Product, Order, OrderItem, TableStatus, OrderStatus
 from . import db, socketio, cache
 from .utils import mozo_required
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from collections import OrderedDict
 from datetime import datetime
 
@@ -33,7 +33,6 @@ def get_products_by_category():
 @mozo_bp.route('/tables')
 @mozo_required
 def tables_view():
-    # ✅ VERSIÓN OPTIMIZADA (AHORA FUNCIONAL GRACIAS AL CAMBIO EN MODELS.PY)
     tables_with_orders = db.session.query(Table).options(
         joinedload(Table.orders.and_(Order.status == 'Activo'))
     ).order_by(Table.number).all()
@@ -145,6 +144,9 @@ def add_item_to_order(order_id):
         product.stock -= quantity
         order.calculate_total()
         db.session.commit()
+        
+        # ✅ MEJORA: Emitimos el evento para notificar a la cocina
+        socketio.emit('new_item_added', {'order_id': order.id})
 
         items = [{
             'id': item.id, 'name': item.display_name or item.product.name,
@@ -190,6 +192,9 @@ def add_half_pizza(order_id):
     order.calculate_total()
     db.session.commit()
     
+    # ✅ MEJORA: Emitimos el evento para notificar a la cocina también para las pizzas
+    socketio.emit('new_item_added', {'order_id': order.id})
+    
     items = [{
         'id': item.id, 'name': item.display_name or item.product.name,
         'quantity': item.quantity, 'unit_price': item.unit_price,
@@ -201,6 +206,7 @@ def add_half_pizza(order_id):
         'order_total': order.total_amount, 'items': items
     })
 
+# ... (El resto del archivo mozo.py se mantiene exactamente igual)
 @mozo_bp.route('/order_item/<int:item_id>/remove', methods=['POST'])
 @mozo_required
 def remove_item_from_order(item_id):
@@ -318,6 +324,10 @@ def new_takeaway_order():
             )
             db.session.add(new_order)
             db.session.commit()
+            
+            # ✅ MEJORA: Notificamos a la cocina que hay un nuevo pedido, aunque esté vacío
+            socketio.emit('new_item_added', {'order_id': new_order.id})
+
             flash(f"Pedido para '{customer_name}' creado. Ahora puede añadir ítems.", 'success')
             return redirect(url_for('mozo.takeaway_order_detail', order_id=new_order.id))
         except Exception as e:

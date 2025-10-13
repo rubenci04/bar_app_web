@@ -9,7 +9,7 @@
     <input type="hidden" name="action" id="bulk-action-input">
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
-        {% for table_info in tables_data %} 
+        {% for table_info in tables_data %}
         <label class="relative cursor-pointer card">
             <input type="checkbox" name="table_ids" value="{{ table_info.id }}" class="table-checkbox absolute top-2 right-2 h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 z-10 touch-target">
             
@@ -28,12 +28,8 @@
                       {% endif %}">
                     {{ table_info.status }}
                 </div>
-                {% if table_info.status == 'Ocupada' %}
-                    {% if table_info.total_pedido_activo > 0 %}
-                        <div class="text-base mt-2 text-gray-800 dark:text-gray-100 font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
-                    {% else %}
-                         <div class="text-xs mt-2 text-gray-400 dark:text-gray-500 italic">(Vacio)</div>
-                    {% endif %}
+                {% if table_info.status == 'Ocupada' and table_info.total_pedido_activo > 0 %}
+                    <div class="text-base mt-2 text-gray-800 dark:text-gray-100 font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
                 {% elif table_info.status == 'Pagada' %}
                     <div class="text-xs mt-2 text-green-600 dark:text-green-400 italic">(Cuenta cerrada)</div>
                 {% endif %}
@@ -58,7 +54,7 @@
             </div>
             <div class="flex justify-end gap-4">
                 <button type="button" id="close-bulk-pay-modal-btn" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 transition-colors">Cancelar</button>
-                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">Cobrar</button>
+                <button type="submit" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">Confirmar Cobro</button>
             </div>
         </form>
     </div>
@@ -66,22 +62,23 @@
 {% endblock %}
 
 {% block fixed_footer %}
-    <div id="bulk-actions-footer" class="hidden fixed bottom-0 inset-x-0 sm:relative sm:bottom-auto sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">    <p class="text-sm sm:text-base font-semibold text-gray-700 dark:text-slate-200 text-center sm:text-left">
-        <i class="fas fa-check-square mr-1 text-blue-500"></i>
-        <span id="selected-count">0</span> mesa(s) seleccionada(s)
-    </p>
-    <div class="flex gap-2 sm:gap-3 flex-wrap justify-center w-full sm:w-auto">
-        <button type="button" data-action="liberate" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-all text-xs sm:text-sm touch-target">
-            <i class="fa-solid fa-broom mr-1 sm:mr-2"></i><span class="hidden xs:inline">Liberar Pagadas</span><span class="xs:hidden">Liberar</span>
-        </button>
-        <button type="button" data-action="cancel" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-all text-xs sm:text-sm touch-target">
-            <i class="fa-solid fa-times mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cancelar</span><span class="xs:hidden">Cancelar</span>
-        </button>
-        <button type="button" id="bulk-pay-btn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all text-xs sm:text-sm touch-target">
-            <i class="fa-solid fa-dollar-sign mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cobrar</span><span class="xs:hidden">Cobrar</span>
-        </button>
+    <div id="bulk-actions-footer" class="hidden fixed bottom-0 inset-x-0 sm:relative sm:bottom-auto sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-slate-900 sm:rounded-lg shadow-2xl border-t sm:border dark:border-slate-700 z-40 fade-in">
+        <p class="text-sm sm:text-base font-semibold text-gray-700 dark:text-slate-200 text-center sm:text-left">
+            <i class="fas fa-check-square mr-1 text-blue-500"></i>
+            <span id="selected-count">0</span> mesa(s) seleccionada(s)
+        </p>
+        <div class="flex gap-2 sm:gap-3 flex-wrap justify-center w-full sm:w-auto">
+            <button type="button" data-action="liberate" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-green-600 hover:bg-green-700 text-white transition-all text-xs sm:text-sm touch-target">
+                <i class="fa-solid fa-broom mr-1 sm:mr-2"></i><span class="hidden xs:inline">Liberar Pagadas</span><span class="xs:hidden">Liberar</span>
+            </button>
+            <button type="button" data-action="cancel" class="bulk-action-btn flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-all text-xs sm:text-sm touch-target">
+                <i class="fa-solid fa-times mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cancelar</span><span class="xs:hidden">Cancelar</span>
+            </button>
+            <button type="button" id="bulk-pay-btn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all text-xs sm:text-sm touch-target">
+                <i class="fa-solid fa-dollar-sign mr-1 sm:mr-2"></i><span class="hidden xs:inline">Cobrar</span><span class="xs:hidden">Cobrar</span>
+            </button>
+        </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -91,25 +88,23 @@
     document.addEventListener('DOMContentLoaded', function() {
         var socket = io();
 
-        socket.on('connect', function() {
-            console.log('Connected to WebSocket');
-        });
-
         socket.on('table_status_update', function(data) {
             console.log('Table status update received:', data);
-            // Pequeña corrección para seleccionar la tarjeta de mesa correctamente
             const tableLabel = document.querySelector(`input[value="${data.table_id}"]`).closest('label');
             if (tableLabel) {
+                // ✅ MEJORA: Añadimos un flash visual para destacar la mesa actualizada
+                tableLabel.style.transition = 'outline-color 0.1s ease-out';
+                tableLabel.style.outline = '3px solid #3b82f6';
+                setTimeout(() => {
+                    tableLabel.style.outline = 'none';
+                }, 400);
+
+                // El resto de la lógica de actualización se mantiene igual
                 const statusBadge = tableLabel.querySelector('.mt-2.text-sm.font-semibold');
                 const link = tableLabel.querySelector('a');
+                if (statusBadge) { statusBadge.textContent = data.status; }
 
-                // Update status text
-                if (statusBadge) {
-                    statusBadge.textContent = data.status;
-                }
-
-                // Update classes for status badge
-                statusBadge.className = 'mt-2 text-sm font-semibold py-1 px-2 rounded-full'; // Reset classes
+                statusBadge.className = 'mt-2 text-sm font-semibold py-1 px-2 rounded-full';
                 if (data.status === 'Vacía') {
                     statusBadge.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900/50', 'dark:text-blue-300');
                 } else if (data.status === 'Ocupada') {
@@ -118,8 +113,7 @@
                     statusBadge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900/50', 'dark:text-green-300');
                 }
 
-                // Update classes for link border
-                link.className = 'block p-3 sm:p-4 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target'; // Reset classes
+                link.className = 'block p-3 sm:p-4 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target';
                 if (data.status === 'Vacía') {
                     link.classList.add('border-gray-300', 'dark:border-gray-700', 'hover:border-blue-400', 'dark:hover:border-blue-500');
                     link.classList.remove('pulse');
@@ -129,7 +123,6 @@
                     link.classList.add('border-green-400', 'dark:border-green-600', 'hover:border-green-500');
                     link.classList.remove('pulse');
                 }
-                // Actualizar la vista podría requerir recargar datos del pedido, pero para el estado es suficiente.
             }
         });
 
@@ -143,16 +136,11 @@
         const bulkPayModal = document.getElementById('bulk-pay-modal');
         const closeBulkPayModalBtn = document.getElementById('close-bulk-pay-modal-btn');
         const bulkPayForm = document.getElementById('bulk-pay-form');
-        const bulkPaymentMethod = document.getElementById('bulk_payment_method');
-
+        
         function updateFooterVisibility() {
             const checkedCount = document.querySelectorAll('.table-checkbox:checked').length;
             selectedCountSpan.textContent = checkedCount;
-            if (checkedCount > 0) {
-                bulkActionsFooter.classList.remove('hidden');
-            } else {
-                bulkActionsFooter.classList.add('hidden');
-            }
+            bulkActionsFooter.classList.toggle('hidden', checkedCount === 0);
         }
 
         checkboxes.forEach(checkbox => {
@@ -169,79 +157,85 @@
                     return;
                 }
                 
-                let confirmMessage = '';
+                // ✅ MEJORA: Mensajes de confirmación más descriptivos y seguros
+                let confirmMessage;
                 if (action === 'liberate') {
-                    confirmMessage = `¿Liberar ${selectedCount} mesa(s) PAGADA(S)?`;
+                    confirmMessage = `¿Estás seguro de que quieres liberar las ${selectedCount} mesa(s) seleccionada(s) que ya estén pagadas?`;
                 } else if (action === 'cancel') {
-                    confirmMessage = `¿CANCELAR los pedidos de ${selectedCount} mesa(s)? Esta acción no se puede deshacer.`;
+                    confirmMessage = `¡Atención! Vas a cancelar los pedidos de ${selectedCount} mesa(s). El stock de los productos será devuelto. ¿Continuar?`;
                 }
 
                 if (confirm(confirmMessage)) {
+                    // ✅ MEJORA: Feedback de carga en el botón
+                    setButtonLoading(this, true); 
                     bulkActionInput.value = action;
                     bulkActionForm.submit();
                 }
             });
         });
 
-        bulkPayBtn.addEventListener('click', function() {
-            const selectedCount = document.querySelectorAll('.table-checkbox:checked').length;
-            if (selectedCount === 0) {
-                showToast('Selecciona al menos una mesa para cobrar.', 'warning');
-                return;
-            }
-            bulkPayModal.classList.remove('hidden');
-        });
-
-        closeBulkPayModalBtn.addEventListener('click', function() {
-            bulkPayModal.classList.add('hidden');
-        });
-
-        bulkPayForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const checkedBoxes = Array.from(document.querySelectorAll('.table-checkbox:checked'));
-            const tableIds = checkedBoxes.map(cb => cb.value);
-            const paymentMethod = bulkPaymentMethod.value;
-            if (!paymentMethod) {
-                showToast('Selecciona un método de pago.', 'warning');
-                return;
-            }
-            const submitBtn = bulkPayForm.querySelector('button[type="submit"]');
-            setButtonLoading(submitBtn, true);
-            
-            fetch("{{ url_for('admin.bulk_pay_tables') }}", {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': bulkPayForm.querySelector('[name="csrf_token"]').value
-                },
-                body: JSON.stringify({
-                    table_ids: tableIds,
-                    payment_method: paymentMethod
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                setButtonLoading(submitBtn, false);
-                bulkPayModal.classList.add('hidden');
-                if (data.success) {
-                    showToast(data.message || 'Mesas cobradas correctamente.', 'success');
-                    // Deseleccionar checkboxes tras el éxito
-                    checkedBoxes.forEach(cb => cb.checked = false);
-                    updateFooterVisibility();
-                } else {
-                    showToast(data.message || 'Error al cobrar las mesas.', 'danger');
+        if (bulkPayBtn) {
+            bulkPayBtn.addEventListener('click', function() {
+                const selectedCount = document.querySelectorAll('.table-checkbox:checked').length;
+                if (selectedCount === 0) {
+                    showToast('Selecciona al menos una mesa para cobrar.', 'warning');
+                    return;
                 }
-            })
-            .catch(() => {
-                setButtonLoading(submitBtn, false);
-                showToast('Error de red. Intenta nuevamente.', 'danger');
+                bulkPayModal.classList.remove('hidden');
             });
-        });
+        }
 
-        document.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.stopPropagation();
+        if (closeBulkPayModalBtn) {
+            closeBulkPayModalBtn.addEventListener('click', () => bulkPayModal.classList.add('hidden'));
+        }
+
+        if (bulkPayForm) {
+            bulkPayForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const checkedBoxes = Array.from(document.querySelectorAll('.table-checkbox:checked'));
+                const tableIds = checkedBoxes.map(cb => cb.value);
+                const paymentMethod = document.getElementById('bulk_payment_method').value;
+                
+                if (!paymentMethod) {
+                    showToast('Selecciona un método de pago.', 'warning');
+                    return;
+                }
+                
+                const submitBtn = bulkPayForm.querySelector('button[type="submit"]');
+                setButtonLoading(submitBtn, true);
+                
+                fetch("{{ url_for('admin.bulk_pay_tables') }}", {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': bulkPayForm.querySelector('[name="csrf_token"]').value
+                    },
+                    body: JSON.stringify({
+                        table_ids: tableIds,
+                        payment_method: paymentMethod
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(data.message || 'Mesas cobradas correctamente.', 'success');
+                        checkedBoxes.forEach(cb => cb.checked = false);
+                        updateFooterVisibility();
+                    } else {
+                        showToast(data.message || 'Error al cobrar las mesas.', 'danger');
+                    }
+                })
+                .catch(() => showToast('Error de red. Intenta nuevamente.', 'danger'))
+                .finally(() => {
+                    setButtonLoading(submitBtn, false);
+                    bulkPayModal.classList.add('hidden');
+                });
             });
+        }
+        
+        // Prevenir que el click en el enlace dispare el checkbox
+        document.querySelectorAll('.card a').forEach(link => {
+            link.addEventListener('click', e => e.stopPropagation());
         });
     });
 </script>

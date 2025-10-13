@@ -1,4 +1,4 @@
-# Archivo: app/__init__.py (Versión Corregida)
+# Archivo: app/__init__.py (Versión Corregida y con Blueprint de Cocina)
 import os
 from flask import Flask, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -35,10 +35,7 @@ def create_app():
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una-clave-de-desarrollo-cualquiera')
     
-    # Esta es la sección corregida. He eliminado los 'else' duplicados
-    # y he unificado la lógica de configuración.
     if os.environ.get('RENDER'):
-        # Configuración para producción (Render)
         app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         
@@ -49,7 +46,6 @@ def create_app():
         app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.environ.get('CACHE_TIMEOUT', 300))
         app.config['CACHE_THRESHOLD'] = 1000
     else:
-        # Configuración para desarrollo local
         if not os.path.exists(app.instance_path):
             os.makedirs(app.instance_path)
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'
@@ -59,7 +55,6 @@ def create_app():
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    # Inicializo todas las extensiones con la app
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
@@ -83,10 +78,14 @@ def create_app():
     from .auth import auth_bp
     from .admin import admin_bp
     from .mozo import mozo_bp
+    # ✅ MEJORA: Importamos el nuevo blueprint de cocina
+    from .cocina import cocina_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(mozo_bp, url_prefix='/mozo')
+    # ✅ MEJORA: Registramos el blueprint de cocina
+    app.register_blueprint(cocina_bp, url_prefix='/cocina')
 
     from .models import User, Product, Table, Order, OrderItem, CashSession
     from . import events
@@ -113,9 +112,13 @@ def create_app():
             admin.set_password("admin123")
             mozo = User(username="mozo", role='mozo')
             mozo.set_password("mozo123")
-            db.session.add_all([admin, mozo])
-            print("-> Usuarios 'admin' y 'mozo' creados.")
+            # ✅ MEJORA: Añadimos un usuario de prueba para la cocina
+            cocina = User(username="cocina", role='cocina')
+            cocina.set_password("cocina123")
+            db.session.add_all([admin, mozo, cocina])
+            print("-> Usuarios 'admin', 'mozo' y 'cocina' creados.")
 
+            # ... (el resto del código de seed-db se mantiene igual)
             products_to_add = [
                 Product(name="Milanesa Común", type="Sandwiches", price=6000.00, stock=100),
                 Product(name="Milanesa Especial", type="Sandwiches", price=7500.00, stock=100, description="Jamón, queso y papas fritas"),
@@ -178,13 +181,18 @@ def create_app():
             print("\n¡Base de datos inicializada con éxito!")
             print("Credenciales por defecto:")
             print("  Admin: admin / admin123")
-            print("  Mozo:  mozo / mozo123\n")
+            print("  Mozo:  mozo / mozo123")
+            print("  Cocina: cocina / cocina123\n")
+
 
     @app.route('/')
     def index():
         if current_user.is_authenticated:
             if current_user.role == 'admin':
                 return redirect(url_for('admin.dashboard'))
+            # ✅ MEJORA: Redirigimos al usuario de cocina a su nueva vista
+            elif current_user.role == 'cocina':
+                return redirect(url_for('cocina.kitchen_display'))
             else:
                 return redirect(url_for('mozo.tables_view'))
         return redirect(url_for('auth.login'))

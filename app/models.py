@@ -9,6 +9,8 @@ from .utils import get_current_time
 class UserRoles:
     ADMIN = 'admin'
     MOZO = 'mozo'
+    # ✅ MEJORA: Añadimos el nuevo rol para la cocina
+    COCINA = 'cocina'
 
 class TableStatus:
     EMPTY = 'Vacía'
@@ -18,6 +20,8 @@ class TableStatus:
 class OrderStatus:
     PENDING = 'Pendiente'
     ACTIVE = 'Activo'
+    # ✅ MEJORA: Añadimos un estado intermedio para la cocina
+    PREPARING = 'En preparación'
     PAID = 'Pagado'
     CANCELED = 'Cancelado'
     ANNULLED = 'Venta Anulada'
@@ -73,8 +77,6 @@ class Table(db.Model):
     capacity = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(20), default=TableStatus.EMPTY)
     
-    # ✅ CORRECCIÓN DE RENDIMIENTO: Se cambia lazy='dynamic' por lazy='selectin'
-    # Esto permite que la carga optimizada (joinedload) funcione correctamente.
     orders = db.relationship('Order', back_populates='table_assigned', lazy='selectin')
 
     def __repr__(self):
@@ -111,6 +113,9 @@ class OrderItem(db.Model):
     subtotal = db.Column(db.Float, nullable=False)
     display_name = db.Column(db.String(200), nullable=True)
     
+    # ✅ MEJORA: Nuevo estado para saber si el ítem ya fue preparado
+    status = db.Column(db.String(20), default='Pendiente') # Estados: Pendiente, Preparado
+
     order = db.relationship('Order', back_populates='items')
     product = db.relationship('Product')
 

@@ -1,0 +1,143 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Comandas en Cocina</h1>
+    <div class="flex items-center gap-2 text-lg font-semibold text-green-600 dark:text-green-400">
+        <i class="fas fa-wifi"></i>
+        <span>En vivo</span>
+    </div>
+</div>
+
+<div id="kitchen-orders-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div id="loading-placeholder" class="col-span-full text-center py-12">
+        <span class="spinner" style="width: 48px; height: 48px; border-width: 4px;"></span>
+        <p class="mt-4 text-lg text-gray-500 dark:text-gray-400">Cargando comandas pendientes...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.socket.io/4.5.2/socket.io.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('kitchen-orders-container');
+    const loadingPlaceholder = document.getElementById('loading-placeholder');
+    const csrfToken = '{{ csrf_token() }}';
+    const socket = io();
+
+    // Función para renderizar una tarjeta de comanda
+    function renderOrder(order) {
+        const itemsHtml = order.items.map(item => `
+            <li id="item-${item.id}" class="py-2 px-3 flex items-center justify-between transition-all duration-300">
+                <span class="font-semibold">${item.quantity}x ${item.name}</span>
+                <button class="mark-prepared-btn p-2 rounded-md bg-gray-200 dark:bg-gray-600 hover:bg-green-500 hover:text-white transition-colors" data-item-id="${item.id}" title="Marcar como preparado">
+                    <i class="fas fa-check"></i>
+                </button>
+            </li>
+        `).join('');
+
+        const orderTypeInfo = order.type === 'Mesa'
+            ? `<i class="fas fa-table mr-2"></i> Mesa ${order.table_number}`
+            : `<i class="fas fa-shopping-bag mr-2"></i> Para Llevar: ${order.customer_name}`;
+
+        return `
+            <div id="order-card-${order.id}" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 fade-in">
+                <div class="flex justify-between items-center border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                    <h3 class="font-bold text-lg text-blue-600 dark:text-blue-500">Pedido #${order.id}</h3>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">${order.created_at}</span>
+                </div>
+                <p class="text-gray-600 dark:text-gray-300 font-semibold mb-3">${orderTypeInfo}</p>
+                <ul class="space-y-1">${itemsHtml}</ul>
+            </div>
+        `;
+    }
+
+    // Función para cargar las comandas iniciales
+    async function fetchAndRenderOrders() {
+        try {
+            const response = await fetch('{{ url_for("cocina.get_pending_items") }}');
+            const orders = await response.json();
+            
+            loadingPlaceholder.style.display = 'none'; // Ocultar el spinner
+
+            if (orders.length === 0) {
+                container.innerHTML = '<p class="col-span-full text-center py-12 text-gray-500 dark:text-gray-400 text-lg">No hay pedidos pendientes.</p>';
+            } else {
+                container.innerHTML = orders.map(renderOrder).join('');
+            }
+        } catch (error) {
+            console.error("Error cargando comandas:", error);
+            container.innerHTML = '<p class="col-span-full text-center py-12 text-red-500 text-lg">Error al cargar las comandas. Revise la conexión.</p>';
+        }
+    }
+
+    // Función para marcar un ítem como preparado
+    async function markItemAsPrepared(itemId, button) {
+        setButtonLoading(button, true);
+        try {
+            const response = await fetch(`/cocina/mark_item_prepared/${itemId}`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            const data = await response.json();
+            if (!data.success) {
+                showToast(data.message || 'No se pudo marcar el ítem.', 'danger');
+                setButtonLoading(button, false);
+            }
+            // Si tiene éxito, el evento de socket se encargará de actualizar la UI
+        } catch (error) {
+            console.error("Error al marcar como preparado:", error);
+            showToast('Error de red al marcar el ítem.', 'danger');
+            setButtonLoading(button, false);
+        }
+    }
+
+    // Cargar las comandas al iniciar
+    fetchAndRenderOrders();
+
+    // Escuchar clics en los botones de "marcar como preparado"
+    container.addEventListener('click', function(e) {
+        const button = e.target.closest('.mark-prepared-btn');
+        if (button) {
+            const itemId = button.dataset.itemId;
+            markItemAsPrepared(itemId, button);
+        }
+    });
+
+    // Escuchar eventos de Socket.IO para actualizar la UI en tiempo real
+    socket.on('item_status_update', function(data) {
+        if (data.status === 'Preparado') {
+            const itemElement = document.getElementById(`item-${data.item_id}`);
+            if (itemElement) {
+                // Animación de salida
+                itemElement.style.transition = 'opacity 0.5s, transform 0.5s';
+                itemElement.style.opacity = '0';
+                itemElement.style.transform = 'translateX(100%)';
+                
+                setTimeout(() => {
+                    const orderCard = itemElement.closest('[id^="order-card-"]');
+                    itemElement.remove();
+                    // Si la tarjeta del pedido se queda sin ítems, la eliminamos también
+                    if (orderCard && orderCard.querySelectorAll('li').length === 0) {
+                        orderCard.remove();
+                         // Si no quedan más pedidos, mostrar mensaje
+                        if (container.children.length === 0) {
+                             container.innerHTML = '<p class="col-span-full text-center py-12 text-gray-500 dark:text-gray-400 text-lg">¡Todas las comandas están listas!</p>';
+                        }
+                    }
+                }, 500);
+            }
+        }
+    });
+    
+    // ✅ MEJORA: Escuchar cuando se añade un nuevo ítem a un pedido
+    socket.on('new_item_added', function() {
+        showToast('¡Nueva comanda recibida!', 'info');
+        // Vuelve a cargar todas las comandas para mostrar la nueva
+        fetchAndRenderOrders();
+    });
+});
+</script>
+{% endblock %}

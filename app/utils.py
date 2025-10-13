@@ -18,18 +18,13 @@ def convert_to_local_time(utc_dt, fmt=None):
     if utc_dt is None:
         return '' if fmt else None
     
-    # --- AQUÍ ESTÁ LA CORRECCIÓN ---
-    # Si recibo un texto, intento convertirlo a un objeto de fecha.
     if isinstance(utc_dt, str):
         try:
-            # Intento primero el formato de fecha y hora.
             utc_dt = datetime.strptime(utc_dt, '%Y-%m-%d %H:%M:%S')
         except ValueError:
             try:
-                # Si falla, intento el formato de solo fecha.
                 utc_dt = datetime.strptime(utc_dt, '%Y-%m-%d').date()
             except ValueError:
-                # Si todo falla, devuelvo el texto original.
                 return utc_dt
 
     if isinstance(utc_dt, date) and not isinstance(utc_dt, datetime):
@@ -61,6 +56,17 @@ def mozo_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.role not in ['admin', 'mozo']: 
+            flash("No tienes permiso para acceder a esta página.", "danger")
+            return redirect(url_for('auth.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# ✅ MEJORA: Nuevo decorador para el rol de Cocina
+def cocina_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Permitimos el acceso a los roles 'cocina' y 'admin'
+        if not current_user.is_authenticated or current_user.role not in ['admin', 'cocina']: 
             flash("No tienes permiso para acceder a esta página.", "danger")
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
