@@ -1,175 +1,350 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Ventas y Reportes</h1>
-    <p class="text-gray-500 dark:text-gray-400 mt-1">
-        Análisis de rendimiento y registro de ventas {{ subtitle }}.
-    </p>
+<div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Ventas y Reportes</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">
+            Análisis del período: <span class="font-semibold text-blue-600 dark:text-blue-400">{{ subtitle }}</span>
+        </p>
+    </div>
+</div>
+
+<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
+    <form action="{{ url_for('admin.sales_and_reports') }}" method="GET" class="flex flex-wrap items-end gap-4">
+        
+        <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <a href="{{ url_for('admin.sales_and_reports', period='today') }}" class="px-4 py-2 rounded-md text-sm font-medium transition-all {% if active_period == 'today' %}bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-300 shadow-sm{% else %}text-gray-600 dark:text-gray-300 hover:text-gray-900{% endif %}">Hoy</a>
+            <a href="{{ url_for('admin.sales_and_reports', period='week') }}" class="px-4 py-2 rounded-md text-sm font-medium transition-all {% if active_period == 'week' %}bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-300 shadow-sm{% else %}text-gray-600 dark:text-gray-300 hover:text-gray-900{% endif %}">Semana</a>
+            <a href="{{ url_for('admin.sales_and_reports', period='month') }}" class="px-4 py-2 rounded-md text-sm font-medium transition-all {% if active_period == 'month' %}bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-300 shadow-sm{% else %}text-gray-600 dark:text-gray-300 hover:text-gray-900{% endif %}">Mes</a>
+        </div>
+
+        <div class="flex items-center gap-2 border-l border-gray-300 dark:border-gray-600 pl-4">
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Desde</label>
+                <input type="date" name="start_date" value="{{ start_date_val }}" class="block w-full px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
+                <input type="date" name="end_date" value="{{ end_date_val }}" class="block w-full px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 focus:ring-blue-500">
+            </div>
+            <div class="pb-0.5">
+                <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors shadow-md">
+                    <i class="fas fa-filter mr-1"></i> Filtrar
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
 
 {% if current_user.role == 'admin' %}
-<div class="mb-6 flex flex-wrap gap-2 items-center">
-    <a href="{{ url_for('admin.sales_and_reports', period='today') }}" class="flex-grow sm:flex-grow-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-center {% if active_period == 'today' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Hoy</a>
-    <a href="{{ url_for('admin.sales_and_reports', period='week') }}" class="flex-grow sm:flex-grow-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-center {% if active_period == 'week' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Semana</a>
-    <a href="{{ url_for('admin.sales_and_reports', period='month') }}" class="flex-grow sm:flex-grow-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-center {% if active_period == 'month' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Mes</a>
-    <a href="{{ url_for('admin.sales_and_reports', period='year') }}" class="flex-grow sm:flex-grow-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-center {% if active_period == 'year' %}bg-blue-600 text-white shadow-md{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">Año</a>
-</div>
-
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 text-center">
-        <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ingresos Totales</p>
-        <p class="text-3xl font-extrabold text-green-600 dark:text-green-500 mt-2">${{ "%.2f"|format(total_ingresos) }}</p>
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-l-4 border-green-500 flex justify-between items-center">
+        <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider">Ingresos</p>
+            <p class="text-3xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">${{ "%.2f"|format(total_ingresos) }}</p>
+        </div>
+        <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600 dark:text-green-400">
+            <i class="fas fa-dollar-sign text-xl"></i>
+        </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 text-center">
-        <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pedidos Cobrados</p>
-        <p class="text-3xl font-extrabold text-blue-600 dark:text-blue-500 mt-2">{{ total_pedidos }}</p>
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-l-4 border-blue-500 flex justify-between items-center">
+        <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider">Pedidos</p>
+            <p class="text-3xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">{{ total_pedidos }}</p>
+        </div>
+        <div class="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400">
+            <i class="fas fa-receipt text-xl"></i>
+        </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 text-center">
-        <p class="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Promedio por Pedido</p>
-        <p class="text-3xl font-extrabold text-yellow-500 dark:text-yellow-400 mt-2">${{ "%.2f"|format(promedio_por_pedido) }}</p>
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-l-4 border-yellow-500 flex justify-between items-center">
+        <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider">Ticket Promedio</p>
+            <p class="text-3xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">${{ "%.2f"|format(promedio_por_pedido) }}</p>
+        </div>
+        <div class="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full text-yellow-600 dark:text-yellow-400">
+            <i class="fas fa-chart-line text-xl"></i>
+        </div>
     </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Ingresos por Día</h3>
-        <div>
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center">
+            <i class="fas fa-calendar-alt mr-2 text-blue-500"></i> Ingresos por Día
+        </h3>
+        <div class="h-64">
             <canvas id="salesByDayChart"></canvas>
         </div>
     </div>
     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Top 5 Productos Vendidos (Unidades)</h3>
-        <div>
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center">
+            <i class="fas fa-clock mr-2 text-purple-500"></i> Horas Pico (Ventas)
+        </h3>
+        <div class="h-64">
+            <canvas id="busyHoursChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">
+            <i class="fas fa-trophy mr-2 text-yellow-500"></i> Top 5 Productos
+        </h3>
+        <div class="h-64">
             <canvas id="topProductsChart"></canvas>
+        </div>
+    </div>
+    <div class="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">
+            <i class="fas fa-chart-pie mr-2 text-green-500"></i> Categorías
+        </h3>
+        <div class="h-64 relative">
+            <canvas id="categoriesChart"></canvas>
         </div>
     </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Top 5 Categorías (por Ingresos)</h3>
-        {% if categorias_populares %}
-        <table class="w-full text-sm">
-            <tbody>
-            {% for cat in categorias_populares %}
-                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ cat.type }}</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(cat.total_revenue) }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">
+            Mejores Mesas
+        </h3>
+        {% if top_tables %}
+        <div class="overflow-y-auto max-h-60">
+            <table class="w-full text-sm">
+                <thead class="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-900/50">
+                    <tr>
+                        <th class="p-2 text-left">Mesa</th>
+                        <th class="p-2 text-center">Pedidos</th>
+                        <th class="p-2 text-right">Facturado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for table in top_tables %}
+                    <tr class="border-b dark:border-gray-700 last:border-none hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="p-2 font-bold text-gray-700 dark:text-gray-300">#{{ table.number }}</td>
+                        <td class="p-2 text-center text-gray-600 dark:text-gray-400">{{ table.count }}</td>
+                        <td class="text-right p-2 font-medium text-green-600">${{ "%.0f"|format(table.total) }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
-        <p class="text-center text-gray-500 dark:text-gray-400 py-4">No hay datos.</p>
+        <p class="text-gray-400 text-center py-4">Sin datos de mesas.</p>
         {% endif %}
     </div>
+
     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Resumen por Método de Pago</h3>
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">
+            Métodos de Pago
+        </h3>
         {% if payment_methods_summary %}
         <table class="w-full text-sm">
             <tbody>
             {% for payment in payment_methods_summary %}
-                <tr class="border-b dark:border-gray-700 last:border-none"><td class="p-2 text-gray-600 dark:text-gray-300">{{ payment.payment_method }}</td><td class="text-center p-2 text-gray-600 dark:text-gray-300">{{ payment.count }} usos</td><td class="text-right p-2 font-medium text-green-600">${{ "%.2f"|format(payment.total) }}</td></tr>
+                <tr class="border-b dark:border-gray-700 last:border-none">
+                    <td class="p-3 flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        {% if payment.payment_method == 'Efectivo' %}<i class="fas fa-money-bill-wave text-green-500"></i>
+                        {% elif payment.payment_method == 'Transferencia' %}<i class="fas fa-university text-blue-500"></i>
+                        {% else %}<i class="fas fa-credit-card text-purple-500"></i>{% endif %}
+                        {{ payment.payment_method }}
+                    </td>
+                    <td class="text-center p-3 text-gray-500">{{ payment.count }} ops</td>
+                    <td class="text-right p-3 font-bold text-gray-800 dark:text-gray-100">${{ "%.2f"|format(payment.total) }}</td>
+                </tr>
             {% endfor %}
             </tbody>
         </table>
         {% else %}
-        <p class="text-center text-gray-500 dark:text-gray-400 py-4">No hay datos.</p>
+        <p class="text-gray-400 text-center py-4">No hay datos.</p>
         {% endif %}
     </div>
 </div>
 {% endif %}
 
 <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg border border-gray-200 dark:border-gray-700">
-    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Registro Detallado de Ventas</h3>
+    <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">Registro Detallado</h3>
+        <span class="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded">Últimos movimientos</span>
     </div>
     <div class="overflow-x-auto">
         <table id="sales-table" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Detalle</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Fecha</th>
-                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
-                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Total</th>
+                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Estado</th>
+                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Acción</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% if pagination.items %}
-                    {% for sale_order in pagination.items %}
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td class="px-6 py-4"><a href="{{ url_for('admin.sale_detail_view', order_id=sale_order.id) }}" class="text-blue-600 hover:underline">#{{ sale_order.id }}</a></td>
-                        <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ sale_order.type }} ({{ sale_order.table_assigned.number if sale_order.table_assigned else sale_order.customer_name }})</td>
-                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ sale_order.updated_at|localtime('%d/%m/%Y %H:%M') }}</td>
-                        <td class="px-6 py-4 font-semibold text-right text-gray-800 dark:text-gray-100">${{ "%.2f"|format(sale_order.total_amount) }}</td>
-                        <td class="px-6 py-4 text-center"><span class="px-2.5 py-1 text-xs font-semibold rounded-full {% if sale_order.status == 'Pagado' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300{% else %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300{% endif %}">{{ sale_order.status }}</span></td>
-                        <td class="px-6 py-4 text-sm font-medium text-center">
-                            {% if sale_order.status == 'Pagado' and current_user.role == 'admin' %}
-                            <form action="{{ url_for('admin.annul_sale', order_id=sale_order.id) }}" method="POST" onsubmit="return confirm('¿Seguro que quieres ANULAR esta venta?');">
+                    {% for sale in pagination.items %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td class="px-6 py-4"><a href="{{ url_for('admin.sale_detail_view', order_id=sale.id) }}" class="text-blue-600 hover:underline font-medium">#{{ sale.id }}</a></td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                            {% if sale.type == 'Mesa' %}
+                                <span class="inline-flex items-center gap-1"><i class="fas fa-chair text-xs opacity-70"></i> Mesa {{ sale.table_assigned.number if sale.table_assigned else '?' }}</span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1"><i class="fas fa-bag-shopping text-xs opacity-70"></i> {{ sale.customer_name }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ sale.updated_at|localtime('%d/%m %H:%M') }}</td>
+                        <td class="px-6 py-4 font-bold text-right text-gray-800 dark:text-gray-100">${{ "%.0f"|format(sale.total_amount) }}</td>
+                        <td class="px-6 py-4 text-center">
+                            {% if sale.status == 'Pagado' %}
+                                <span class="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">Pagado</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300">Anulado</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if sale.status == 'Pagado' and current_user.role == 'admin' %}
+                            <form action="{{ url_for('admin.annul_sale', order_id=sale.id) }}" method="POST" onsubmit="return confirm('¿ANULAR venta? Se devolverá el stock.');" class="inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="font-semibold text-yellow-600 hover:text-yellow-500">Anular</button>
+                                <button type="submit" class="text-xs text-red-600 hover:text-red-800 font-semibold border border-red-200 bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition">Anular</button>
                             </form>
                             {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">No hay ventas en este período.</td></tr>
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400">No hay registros en este período.</td></tr>
                 {% endif %}
             </tbody>
         </table>
     </div>
-</div>
-
-{% if pagination and pagination.pages > 1 %}
-<div class="mt-6 flex justify-center">
+    {% if pagination and pagination.pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center">
+        <div class="flex rounded-md shadow-sm">
+            <a href="{{ url_for('admin.sales_and_reports', page=pagination.prev_num, period=active_period, start_date=start_date_val, end_date=end_date_val) if pagination.has_prev else '#' }}" class="px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 {% if not pagination.has_prev %}opacity-50 cursor-not-allowed{% endif %}">Ant</a>
+            <span class="px-4 py-2 border-t border-b border-gray-300 bg-white text-sm text-gray-700">Pág {{ pagination.page }}</span>
+            <a href="{{ url_for('admin.sales_and_reports', page=pagination.next_num, period=active_period, start_date=start_date_val, end_date=end_date_val) if pagination.has_next else '#' }}" class="px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 {% if not pagination.has_next %}opacity-50 cursor-not-allowed{% endif %}">Sig</a>
+        </div>
     </div>
-{% endif %}
+    {% endif %}
+</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const isDarkMode = document.documentElement.classList.contains('dark');
-    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-    const textColor = isDarkMode ? '#E5E7EB' : '#374151';
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+    const textColor = isDark ? '#9CA3AF' : '#4B5563';
 
-    // GRÁFICO 1: VENTAS POR DÍA
+    // 1. Ventas por Día
     const salesCtx = document.getElementById('salesByDayChart');
     if (salesCtx) {
-        const salesLabels = JSON.parse('{{ sales_by_day_labels|safe }}');
-        const salesData = JSON.parse('{{ sales_by_day_data|safe }}');
-        if (salesLabels.length > 0) {
-            new Chart(salesCtx, {
-                type: 'line',
-                data: { labels: salesLabels, datasets: [{ label: 'Ingresos ($)', data: salesData, fill: true, borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.2)', tension: 0.1 }] },
-                options: { scales: { y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, x: { ticks: { color: textColor }, grid: { color: gridColor } } }, plugins: { legend: { labels: { color: textColor } } } }
-            });
-        }
+        new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: JSON.parse('{{ sales_by_day_labels|safe }}'),
+                datasets: [{
+                    label: 'Ingresos ($)',
+                    data: JSON.parse('{{ sales_by_day_data|safe }}'),
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+                    x: { grid: { display: false }, ticks: { color: textColor } }
+                }
+            }
+        });
     }
 
-    // GRÁFICO 2: TOP PRODUCTOS
+    // 2. Horas Pico (NUEVO)
+    const busyCtx = document.getElementById('busyHoursChart');
+    if (busyCtx) {
+        new Chart(busyCtx, {
+            type: 'bar',
+            data: {
+                labels: JSON.parse('{{ busy_hours_labels|safe }}'),
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: JSON.parse('{{ busy_hours_data|safe }}'),
+                    backgroundColor: '#8B5CF6',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+                    x: { grid: { display: false }, ticks: { color: textColor } }
+                }
+            }
+        });
+    }
+
+    // 3. Top Productos
     const productsCtx = document.getElementById('topProductsChart');
     if (productsCtx) {
-        const productsLabels = JSON.parse('{{ top_products_labels|safe }}');
-        const productsData = JSON.parse('{{ top_products_data|safe }}');
-        if (productsLabels.length > 0) {
-            new Chart(productsCtx, {
-                type: 'bar',
-                data: {
-                    labels: productsLabels,
-                    datasets: [{
-                        label: 'Unidades Vendidas', data: productsData,
-                        backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(34, 197, 94, 0.7)', 'rgba(239, 68, 68, 0.7)', 'rgba(249, 115, 22, 0.7)', 'rgba(168, 85, 247, 0.7)'],
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    scales: { x: { beginAtZero: true, ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor } }, y: { ticks: { color: textColor }, grid: { display: false } } },
-                    plugins: { legend: { display: false } }
+        new Chart(productsCtx, {
+            type: 'bar',
+            data: {
+                labels: JSON.parse('{{ top_products_labels|safe }}'),
+                datasets: [{
+                    label: 'Unidades',
+                    data: JSON.parse('{{ top_products_data|safe }}'),
+                    backgroundColor: '#F59E0B',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+                    y: { grid: { display: false }, ticks: { color: textColor } }
                 }
-            });
-        }
+            }
+        });
+    }
+
+    // 4. Categorías (NUEVO)
+    const catCtx = document.getElementById('categoriesChart');
+    if (catCtx) {
+        new Chart(catCtx, {
+            type: 'doughnut',
+            data: {
+                labels: JSON.parse('{{ cat_labels|safe }}'),
+                datasets: [{
+                    data: JSON.parse('{{ cat_data|safe }}'),
+                    backgroundColor: [
+                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { 
+                    legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } 
+                }
+            }
+        });
     }
 });
 </script>

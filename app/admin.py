@@ -1,10 +1,11 @@
-# Archivo: app/admin.py (Versión Completa y Corregida)
+# Archivo: app/admin.py (Versión Final con Reportes Avanzados)
 import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response, jsonify
 from . import db, cache, socketio
 from .models import Product, Order, OrderItem, Table, User, CashSession, OrderStatus, TableStatus, UserRoles
 from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time, retry_on_db_error
-from datetime import datetime, date, timedelta
+# [Yo]: Agregué 'time' aquí, es necesario para los filtros de fecha avanzados
+from datetime import datetime, date, timedelta, time
 from sqlalchemy import func
 from flask_login import current_user
 from werkzeug.datastructures import ImmutableMultiDict
@@ -12,7 +13,7 @@ from .exceptions import ConnectionError, ValidationError, TransactionError
 
 admin_bp = Blueprint('admin', __name__)
 
-ITEMS_PER_PAGE = 10
+ITEMS_PER_PAGE = 15  # [Yo]: Aumenté esto a 15 para que veas más registros por página
 
 @cache.memoize(timeout=300)
 def get_distinct_categories():
@@ -87,8 +88,6 @@ def products():
         search_category_value=search_category,
         distinct_categories_for_filter=get_distinct_categories()
     )
-
-# ... (Las funciones add_product, edit_product, delete_product y sales_and_reports se mantienen sin cambios)
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
 @mozo_required
@@ -210,41 +209,68 @@ def delete_product(product_id):
         flash('Producto eliminado con éxito.', 'success')
     return redirect(url_for('admin.products'))
 
+# [Yo]: ESTA ES LA FUNCIÓN ACTUALIZADA CON TODOS LOS FILTROS Y NUEVAS MÉTRICAS
 @admin_bp.route('/sales-reports')
 @mozo_required
 def sales_and_reports():
     page = request.args.get('page', 1, type=int)
+    
+    # Filtros de Fecha
     period = request.args.get('period', 'today')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
     now = get_current_time()
     start_date, end_date = None, None
-    
-    reference_date = now.date()
-    if period == 'today':
-        start_date = datetime.combine(reference_date, datetime.min.time())
-        end_date = datetime.combine(reference_date, datetime.max.time())
-    elif period == 'week':
-        start_of_week = reference_date - timedelta(days=reference_date.weekday())
-        end_of_week = start_of_week + timedelta(days=6)
-        start_date = datetime.combine(start_of_week, datetime.min.time())
-        end_date = datetime.combine(end_of_week, datetime.max.time())
-    elif period == 'month':
-        start_of_month = reference_date.replace(day=1)
-        next_month = start_of_month.replace(day=28) + timedelta(days=4)
-        end_of_month = next_month - timedelta(days=next_month.day)
-        start_date = datetime.combine(start_of_month, datetime.min.time())
-        end_date = datetime.combine(end_of_month, datetime.max.time())
-    else: # 'year'
-        start_of_year = reference_date.replace(day=1, month=1)
-        end_of_year = reference_date.replace(day=31, month=12)
-        start_date = datetime.combine(start_of_year, datetime.min.time())
-        end_date = datetime.combine(end_of_year, datetime.max.time())
+    is_custom_range = False
 
+    # Lógica de Filtros
+    if start_date_str and end_date_str:
+        # Filtro Personalizado
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            period = 'custom'
+            is_custom_range = True
+        except ValueError:
+            flash('Formato de fecha inválido.', 'danger')
+            return redirect(url_for('admin.sales_and_reports'))
+    else:
+        # Filtros Predefinidos
+        reference_date = now.date()
+        if period == 'today':
+            start_date = datetime.combine(reference_date, time.min)
+            end_date = datetime.combine(reference_date, time.max)
+        elif period == 'week':
+            start_of_week = reference_date - timedelta(days=reference_date.weekday())
+            end_of_week = start_of_week + timedelta(days=6)
+            start_date = datetime.combine(start_of_week, time.min)
+            end_date = datetime.combine(end_of_week, time.max)
+        elif period == 'month':
+            start_of_month = reference_date.replace(day=1)
+            # Truco para fin de mes
+            next_month = start_of_month.replace(day=28) + timedelta(days=4)
+            end_of_month = next_month - timedelta(days=next_month.day)
+            start_date = datetime.combine(start_of_month, time.min)
+            end_date = datetime.combine(end_of_month, time.max)
+        elif period == 'year':
+            start_of_year = reference_date.replace(day=1, month=1)
+            end_of_year = reference_date.replace(day=31, month=12)
+            start_date = datetime.combine(start_of_year, time.min)
+            end_date = datetime.combine(end_of_year, time.max)
+        else: # Default a hoy si algo falla
+            start_date = datetime.combine(reference_date, time.min)
+            end_date = datetime.combine(reference_date, time.max)
+
+    # Consulta Base (Solo pagados para estadísticas)
     stats_query = Order.query.filter(Order.status == OrderStatus.PAID, Order.updated_at.between(start_date, end_date))
     
+    # 1. KPIs Generales
     total_ingresos = stats_query.with_entities(func.sum(Order.total_amount)).scalar() or 0.0
     total_pedidos = stats_query.count()
     promedio_por_pedido = total_ingresos / total_pedidos if total_pedidos > 0 else 0.0
 
+    # 2. Ventas por Día (Gráfico de Línea)
     ventas_por_dia = stats_query.with_entities(
         func.date(Order.updated_at).label('dia'),
         func.sum(Order.total_amount).label('total_diario')
@@ -258,7 +284,13 @@ def sales_and_reports():
         sales_by_day_labels.append(dia_obj.strftime('%d/%m'))
     sales_by_day_data = [v.total_diario for v in ventas_por_dia]
 
-    base_items_query = OrderItem.query.join(Order).filter(Order.id.in_([o.id for o in stats_query.all()]))
+    # 3. Ranking Productos y Categorías
+    # Optimizamos trayendo solo los IDs de las ordenes filtradas
+    order_ids_subquery = stats_query.with_entities(Order.id)
+    
+    base_items_query = OrderItem.query.filter(OrderItem.order_id.in_(order_ids_subquery))
+    
+    # Top Productos
     ranking_productos = base_items_query.join(Product).with_entities(
         Product.name, func.sum(OrderItem.quantity).label('total_quantity')
     ).group_by(Product.name).order_by(func.sum(OrderItem.quantity).desc()).limit(5).all()
@@ -266,36 +298,77 @@ def sales_and_reports():
     top_products_labels = [p.name for p in ranking_productos]
     top_products_data = [p.total_quantity for p in ranking_productos]
     
+    # Top Categorías (Para gráfico de torta)
     categorias_populares = base_items_query.join(Product).with_entities(
         Product.type,
         func.sum(OrderItem.subtotal).label('total_revenue')
-    ).group_by(Product.type).order_by(func.sum(OrderItem.subtotal).desc()).limit(5).all()
+    ).group_by(Product.type).order_by(func.sum(OrderItem.subtotal).desc()).all()
+    
+    cat_labels = [c.type for c in categorias_populares]
+    cat_data = [c.total_revenue for c in categorias_populares]
 
+    # 4. NUEVA MÉTRICA: Ventas por Hora (Horas Pico)
+    # Lo hacemos en Python para compatibilidad universal (SQLite/Postgres)
+    orders_data = stats_query.with_entities(Order.updated_at, Order.total_amount).all()
+    hours_data = {h: 0 for h in range(24)} # Inicializar horas 0-23
+    for o_date, o_amount in orders_data:
+        local_dt = convert_to_local_time(o_date)
+        if local_dt:
+            hours_data[local_dt.hour] += o_amount
+    
+    # Filtramos solo horas con ventas para el gráfico
+    busy_hours_labels = [f"{h}:00" for h in range(24) if hours_data[h] > 0]
+    busy_hours_data = [hours_data[h] for h in range(24) if hours_data[h] > 0]
+
+    # 5. NUEVA MÉTRICA: Rendimiento por Mesa
+    top_tables = stats_query.join(Table).filter(Order.type == 'Mesa').with_entities(
+        Table.number,
+        func.count(Order.id).label('count'),
+        func.sum(Order.total_amount).label('total')
+    ).group_by(Table.number).order_by(func.sum(Order.total_amount).desc()).limit(8).all()
+
+    # 6. Resumen Métodos de Pago
     payment_methods_summary = stats_query.with_entities(
         Order.payment_method,
         func.count(Order.id).label('count'),
         func.sum(Order.total_amount).label('total')
     ).filter(Order.payment_method.isnot(None)).group_by(Order.payment_method).order_by(func.count(Order.id).desc()).all()
 
-    log_query = Order.query.filter(Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED])).order_by(Order.updated_at.desc())
-    pagination = log_query.paginate(page=page, per_page=15, error_out=False)
+    # Tabla Detallada (Logs)
+    log_query = Order.query.filter(
+        Order.status.in_([OrderStatus.PAID, OrderStatus.ANNULLED]), 
+        Order.updated_at.between(start_date, end_date)
+    ).order_by(Order.updated_at.desc())
+    
+    pagination = log_query.paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
 
     return render_template('admin/sales_and_reports.html', 
         title="Ventas y Reportes",
-        subtitle=f"para {period.replace('_', ' ').capitalize()}",
+        subtitle=f"({start_date.strftime('%d/%m')} - {end_date.strftime('%d/%m')})",
         active_period=period,
+        is_custom_range=is_custom_range,
+        start_date_val=start_date_str,
+        end_date_val=end_date_str,
+        
         total_ingresos=total_ingresos,
         total_pedidos=total_pedidos,
         promedio_por_pedido=promedio_por_pedido,
+        
         pagination=pagination,
-        ranking_productos=ranking_productos,
-        ventas_por_dia=ventas_por_dia,
-        categorias_populares=categorias_populares,
-        payment_methods_summary=payment_methods_summary,
+        
+        # Datos para Gráficos
         sales_by_day_labels=json.dumps(sales_by_day_labels),
         sales_by_day_data=json.dumps(sales_by_day_data),
         top_products_labels=json.dumps(top_products_labels),
-        top_products_data=json.dumps(top_products_data)
+        top_products_data=json.dumps(top_products_data),
+        cat_labels=json.dumps(cat_labels),
+        cat_data=json.dumps(cat_data),
+        busy_hours_labels=json.dumps(busy_hours_labels),
+        busy_hours_data=json.dumps(busy_hours_data),
+        
+        # Datos para Tablas
+        top_tables=top_tables,
+        payment_methods_summary=payment_methods_summary
     )
 
 @admin_bp.route('/sale/detail/<int:order_id>')
@@ -413,8 +486,8 @@ def clear_all_paid_tables():
     else:
         for table in tables_to_clear:
             table.status = TableStatus.EMPTY
-        db.session.commit()
-        flash(f'{len(tables_to_clear)} mesas han sido liberadas con éxito.', 'success')
+            db.session.commit()
+            flash(f'{len(tables_to_clear)} mesas han sido liberadas con éxito.', 'success')
         
     return redirect(url_for('admin.manage_tables'))
 
