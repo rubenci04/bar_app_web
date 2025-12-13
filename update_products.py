@@ -96,6 +96,25 @@ def update_menu_from_pdf():
     # [Yo]: CORRECCIÓN CLAVE AQUÍ:
     # create_app() devuelve dos valores: (app, socketio). 
     # Usamos [0] para quedarnos solo con 'app' y descartar 'socketio' que no necesitamos aquí.
+    
+    # [Yo]: Mapeo manual para nombres que difieren mucho entre el PDF y la Base de Datos
+    NAME_MAPPING = {
+        "Mila Napo Clásica (1 pers)": "Napo para 1 persona",
+        "Mila Napo Clásica (2 pers)": "Napo para 2 personas",
+        "Mila al Roquefort": "Milanesa Al roquefort",
+        "Mila a la Fugazzeta": "Milanesa a la fugazzeta",
+        "Mila a la Americana": "Milanesa a la Americana",
+        "Hamburguesa Pecadora": "Hamburguesa Peca",
+        "Hamburguesa Simple": "Hamburguesa Simple", # También confirmar si existe "Hamburguesa Común"
+        "Especial Don Enrique Burger": "Especial Don Enrique (Hamb.)",
+        "Linea Coca 1lt": "Coca de 1lt",
+        "Linea Pepsi 2lt": "Linea pepsi 2lt", # Capitalization check
+        "Linea Pepsi lata": "Linea pepsi lata",
+        # Agrego otros que vi en las capturas por si acaso
+        "Agregado Cebolla": "Agregado Cebolla",
+        "Agregado Hamburguesa": "Agregado Hamburguesa",
+    }
+
     app = create_app()[0] 
     
     with app.app_context():
@@ -104,17 +123,39 @@ def update_menu_from_pdf():
         created_count = 0
 
         for item_data in menu_items:
-            # [Yo]: Busco si el producto ya existe por su nombre (ignorando mayúsculas/minúsculas)
-            product = Product.query.filter(Product.name.ilike(item_data['name'])).first()
+            product = None
+            
+            # [Yo]: 0. Revisar Mapeo Manual primero
+            if item_data['name'] in NAME_MAPPING:
+                mapped_name = NAME_MAPPING[item_data['name']]
+                product = Product.query.filter(Product.name.ilike(mapped_name)).first()
+                if product:
+                    print(f"🎯 Match por Mapeo Manual: '{item_data['name']}' -> '{product.name}'")
+
+            # [Yo]: 1. Intento coincidencia exacta (ilike)
+            if not product:
+                product = Product.query.filter(Product.name.ilike(item_data['name'])).first()
+
+            # [Yo]: 2. Si no encuentro, y es una Milanesa, intento buscar con "Sandwich " antes
+            if not product and "Milanesa" in item_data['name']:
+                 variation_name = f"Sandwich {item_data['name']}"
+                 product = Product.query.filter(Product.name.ilike(variation_name)).first()
+            
+            # [Yo]: 3. Búsqueda laxa (contiene)
+            if not product and len(item_data['name']) > 5:
+                # Busco que la base contenga parte del nombre o viceversa
+                # OJO: Esto puede dar falsos positivos, pero es el último recurso
+                pass # Lo desactivo por ahora porque el mapeo manual es más seguro
 
             if product:
                 # [Yo]: Si existe, actualizo precios y stock
+                old_price = product.price
                 product.price = item_data['price']
                 product.type = item_data['type']
                 product.description = item_data.get('description', '')
                 product.stock = MASSIVE_STOCK
                 updated_count += 1
-                print(f"🔄 Actualizado: {product.name} -> ${product.price}")
+                print(f"🔄 Actualizado: {product.name} (${old_price} -> ${product.price})")
             else:
                 # [Yo]: Si no existe, lo creo
                 new_product = Product(
