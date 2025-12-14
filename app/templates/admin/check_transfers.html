@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Control de Transferencias</h1>
+            <p class="text-gray-500 dark:text-gray-400 mt-1">
+                Movimientos del día: <span class="font-bold text-blue-600">{{ today.strftime('%d/%m/%Y') }}</span>
+            </p>
+        </div>
+        <div class="bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-800">
+            <span class="text-sm text-blue-800 dark:text-blue-300 uppercase font-bold">Total Esperado</span>
+            <div class="text-2xl font-extrabold text-blue-700 dark:text-blue-200">${{ "%.2f"|format(total_amount) }}</div>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+        {% if transfers %}
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Hora</th>
+                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Referencia</th>
+                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Monto</th>
+                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-300 uppercase">Verificado</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for t in transfers %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer transfer-row" onclick="toggleRow(this)">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ t.updated_at|localtime('%H:%M') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {% if t.type == 'Mesa' %}
+                                Mesa {{ t.table_assigned.number if t.table_assigned else '?' }}
+                            {% else %}
+                                {{ t.customer_name }}
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Pedido #{{ t.id }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-base font-bold text-gray-800 dark:text-gray-100">
+                        ${{ "%.2f"|format(t.total_amount) }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <div class="check-indicator w-6 h-6 rounded-full border-2 border-gray-300 mx-auto flex items-center justify-center text-transparent transition-all">
+                            <i class="fas fa-check text-xs"></i>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="p-10 text-center text-gray-500 dark:text-gray-400">
+            <i class="fas fa-university text-4xl mb-3 opacity-30"></i>
+            <p>No hay ventas registradas con transferencia hoy.</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="mt-4 text-center">
+        <a href="{{ url_for('admin.sales_and_reports') }}" class="text-blue-600 hover:underline">Volver a Reportes</a>
+    </div>
+</div>
+
+<script>
+    function toggleRow(row) {
+        const indicator = row.querySelector('.check-indicator');
+        
+        if (row.classList.contains('bg-green-50')) {
+            // Desmarcar
+            row.classList.remove('bg-green-50', 'dark:bg-green-900/20');
+            indicator.classList.remove('bg-green-500', 'border-green-500', 'text-white');
+            indicator.classList.add('border-gray-300', 'text-transparent');
+        } else {
+            // Marcar como verificado
+            row.classList.add('bg-green-50', 'dark:bg-green-900/20');
+            indicator.classList.remove('border-gray-300', 'text-transparent');
+            indicator.classList.add('bg-green-500', 'border-green-500', 'text-white');
+        }
+    }
+</script>
+{% endblock %}

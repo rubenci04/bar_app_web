@@ -34,6 +34,33 @@ def invalidate_product_cache():
     cache.delete_memoized(get_distinct_categories)
     current_app.logger.info("Caché de categorías de productos invalidado.")
 
+# --- AGREGAR EN app/admin.py ---
+
+@admin_bp.route('/check-transfers')
+@admin_required
+def check_transfers():
+    """
+    Vista especial para auditar las transferencias del día actual.
+    Ayuda a comparar con el Home Banking.
+    """
+    today = date.today()
+    start = datetime.combine(today, time.min)
+    end = datetime.combine(today, time.max)
+
+    # Buscar órdenes pagadas hoy con 'Transferencia'
+    transfers = Order.query.filter(
+        Order.status == OrderStatus.PAID,
+        Order.payment_method == 'Transferencia',
+        Order.updated_at.between(start, end)
+    ).order_by(Order.updated_at.desc()).all()
+
+    total_amount = sum(t.total_amount for t in transfers)
+
+    return render_template('admin/check_transfers.html', 
+                           transfers=transfers, 
+                           total_amount=total_amount,
+                           today=today)
+
 @admin_bp.route('/dashboard')
 @admin_required
 def dashboard():

@@ -8,31 +8,44 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" id="bulk-action-input">
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         {% for table_info in tables_data %}
-        <label class="relative cursor-pointer card">
-            <input type="checkbox" name="table_ids" value="{{ table_info.id }}" class="table-checkbox absolute top-2 right-2 h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 z-10 touch-target">
+        <label class="relative cursor-pointer card h-full">
+            <input type="checkbox" name="table_ids" value="{{ table_info.id }}" class="table-checkbox absolute top-2 right-2 h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500 z-20 touch-target">
             
             <a href="{{ url_for('mozo.table_detail_view', table_id=table_info.id) }}"
-               class="block p-3 sm:p-4 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target
+               class="flex flex-col justify-between h-full p-3 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target relative z-10
                       {% if table_info.status == 'Vacía' %} border-gray-300 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500
                       {% elif table_info.status == 'Ocupada' %} border-yellow-400 dark:border-yellow-600 hover:border-yellow-500 pulse
                       {% elif table_info.status == 'Pagada' %} border-green-400 dark:border-green-600 hover:border-green-500
                       {% endif %}">
-                <div class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">Mesa {{ table_info.number }}</div>
-                <div class="text-xs sm:text-sm mt-1 text-gray-500 dark:text-gray-400"><i class="fas fa-users mr-1"></i>{{ table_info.capacity }} pers.</div>
-                <div class="mt-2 text-sm font-semibold py-1 px-2 rounded-full
-                      {% if table_info.status == 'Vacía' %} bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300
-                      {% elif table_info.status == 'Ocupada' %} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
-                      {% elif table_info.status == 'Pagada' %} bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
-                      {% endif %}">
-                    {{ table_info.status }}
+                
+                <div class="mb-2">
+                    <div class="text-xl font-bold text-gray-800 dark:text-gray-100">Mesa {{ table_info.number }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 flex justify-center items-center gap-1">
+                        <i class="fas fa-users"></i> {{ table_info.capacity }}p
+                    </div>
                 </div>
-                {% if table_info.status == 'Ocupada' and table_info.total_pedido_activo > 0 %}
-                    <div class="text-base mt-2 text-gray-800 dark:text-gray-100 font-bold">Total: ${{ "%.2f"|format(table_info.total_pedido_activo) }}</div>
-                {% elif table_info.status == 'Pagada' %}
-                    <div class="text-xs mt-2 text-green-600 dark:text-green-400 italic">(Cuenta cerrada)</div>
-                {% endif %}
+
+                <div class="mt-auto space-y-2">
+                    <div class="inline-block text-xs font-bold uppercase tracking-wide py-1 px-2 rounded-full w-full
+                          {% if table_info.status == 'Vacía' %} bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300
+                          {% elif table_info.status == 'Ocupada' %} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                          {% elif table_info.status == 'Pagada' %} bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                          {% endif %}">
+                        {{ table_info.status }}
+                    </div>
+
+                    {% if table_info.status == 'Ocupada' and table_info.total_pedido_activo > 0 %}
+                        <div class="text-sm sm:text-base font-extrabold text-gray-800 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 rounded px-1 py-0.5 truncate">
+                            ${{ "%.0f"|format(table_info.total_pedido_activo) }}
+                        </div>
+                    {% elif table_info.status == 'Pagada' %}
+                        <div class="text-xs text-green-600 dark:text-green-400 italic font-medium">Wait...</div>
+                    {% else %}
+                        <div class="h-5 sm:h-6"></div>
+                    {% endif %}
+                </div>
             </a>
         </label>
         {% endfor %}
@@ -92,37 +105,15 @@
             console.log('Table status update received:', data);
             const tableLabel = document.querySelector(`input[value="${data.table_id}"]`).closest('label');
             if (tableLabel) {
-                // ✅ MEJORA: Añadimos un flash visual para destacar la mesa actualizada
                 tableLabel.style.transition = 'outline-color 0.1s ease-out';
                 tableLabel.style.outline = '3px solid #3b82f6';
                 setTimeout(() => {
                     tableLabel.style.outline = 'none';
                 }, 400);
-
-                // El resto de la lógica de actualización se mantiene igual
-                const statusBadge = tableLabel.querySelector('.mt-2.text-sm.font-semibold');
-                const link = tableLabel.querySelector('a');
-                if (statusBadge) { statusBadge.textContent = data.status; }
-
-                statusBadge.className = 'mt-2 text-sm font-semibold py-1 px-2 rounded-full';
-                if (data.status === 'Vacía') {
-                    statusBadge.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900/50', 'dark:text-blue-300');
-                } else if (data.status === 'Ocupada') {
-                    statusBadge.classList.add('bg-yellow-100', 'text-yellow-800', 'dark:bg-yellow-900/50', 'dark:text-yellow-300');
-                } else if (data.status === 'Pagada') {
-                    statusBadge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900/50', 'dark:text-green-300');
-                }
-
-                link.className = 'block p-3 sm:p-4 bg-white dark:bg-gray-800 border-2 rounded-lg shadow-md text-center transition-all duration-200 ease-in-out touch-target';
-                if (data.status === 'Vacía') {
-                    link.classList.add('border-gray-300', 'dark:border-gray-700', 'hover:border-blue-400', 'dark:hover:border-blue-500');
-                    link.classList.remove('pulse');
-                } else if (data.status === 'Ocupada') {
-                    link.classList.add('border-yellow-400', 'dark:border-yellow-600', 'hover:border-yellow-500', 'pulse');
-                } else if (data.status === 'Pagada') {
-                    link.classList.add('border-green-400', 'dark:border-green-600', 'hover:border-green-500');
-                    link.classList.remove('pulse');
-                }
+                
+                // Recargar la página para actualizar montos y estilos complejos es lo más seguro aquí
+                // Opcional: podrías hacer un fetch parcial, pero reload es simple y efectivo para cambios de estado
+                window.location.reload(); 
             }
         });
 
@@ -157,7 +148,6 @@
                     return;
                 }
                 
-                // ✅ MEJORA: Mensajes de confirmación más descriptivos y seguros
                 let confirmMessage;
                 if (action === 'liberate') {
                     confirmMessage = `¿Estás seguro de que quieres liberar las ${selectedCount} mesa(s) seleccionada(s) que ya estén pagadas?`;
@@ -166,7 +156,6 @@
                 }
 
                 if (confirm(confirmMessage)) {
-                    // ✅ MEJORA: Feedback de carga en el botón
                     setButtonLoading(this, true); 
                     bulkActionInput.value = action;
                     bulkActionForm.submit();
@@ -221,6 +210,7 @@
                         showToast(data.message || 'Mesas cobradas correctamente.', 'success');
                         checkedBoxes.forEach(cb => cb.checked = false);
                         updateFooterVisibility();
+                        setTimeout(() => window.location.reload(), 1000);
                     } else {
                         showToast(data.message || 'Error al cobrar las mesas.', 'danger');
                     }
@@ -233,7 +223,6 @@
             });
         }
         
-        // Prevenir que el click en el enlace dispare el checkbox
         document.querySelectorAll('.card a').forEach(link => {
             link.addEventListener('click', e => e.stopPropagation());
         });
