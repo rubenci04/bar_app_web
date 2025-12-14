@@ -1,4 +1,4 @@
-# Archivo: app/admin.py (Versión Final con Reportes Avanzados y CRUD Habilitado)
+# Archivo: app/admin.py (Versión Final con Reportes Avanzados, CRUD Habilitado y Borrado Masivo)
 import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response, jsonify
 from . import db, cache, socketio
@@ -221,6 +221,48 @@ def delete_product(product_id):
     invalidate_product_cache()
     
     flash('Producto eliminado correctamente. Su historial de ventas se ha conservado.', 'success')
+    return redirect(url_for('admin.products'))
+
+# [Yo]: NUEVA RUTA PARA ELIMINACIÓN MASIVA
+@admin_bp.route('/products/bulk_delete', methods=['POST'])
+@mozo_required
+def bulk_delete_products():
+    product_ids = request.form.getlist('product_ids')
+    
+    if not product_ids:
+        flash('No se seleccionaron productos para eliminar.', 'warning')
+        return redirect(url_for('admin.products'))
+
+    deleted_count = 0
+    try:
+        # Recorremos cada ID y aplicamos la misma lógica de "Borrado Inteligente"
+        for prod_id in product_ids:
+            product = Product.query.get(int(prod_id))
+            if not product:
+                continue
+
+            # 1. Buscamos todas las ventas históricas
+            associated_items = OrderItem.query.filter_by(product_id=product.id).all()
+            
+            # 2. "Congelamos" el nombre en el historial y desvinculamos
+            if associated_items:
+                for item in associated_items:
+                    if not item.display_name:
+                        item.display_name = f"{product.name} (Histórico)"
+                    item.product_id = None
+            
+            # 3. Borramos el producto
+            db.session.delete(product)
+            deleted_count += 1
+
+        db.session.commit()
+        invalidate_product_cache()
+        flash(f'{deleted_count} productos eliminados correctamente.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar productos: {str(e)}', 'danger')
+
     return redirect(url_for('admin.products'))
 
 # [Yo]: ESTA ES LA FUNCIÓN ACTUALIZADA CON TODOS LOS FILTROS Y NUEVAS MÉTRICAS
@@ -809,8 +851,6 @@ def bulk_pay_tables():
         db.session.rollback()
         current_app.logger.error(f"Error al cobrar mesas en lote: {str(e)}")
         return jsonify({'success': False, 'message': 'Ocurrió un error en el servidor.'}), 500
-
-# --- NUEVA SECCIÓN DE HERRAMIENTAS DE MANTENIMIENTO ---
 
 @admin_bp.route('/actualizar-precios-ahora')
 @admin_required

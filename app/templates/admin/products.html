@@ -2,22 +2,32 @@
 {% block content %}
 <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
     <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestionar Productos</h1>
-    <a href="{{ url_for('admin.add_product') }}" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-        <i class="fa-solid fa-plus mr-2"></i>Añadir Producto
-    </a>
+    <div class="flex gap-2">
+        <button type="submit" form="bulk-action-form" id="bulk-delete-btn" class="hidden px-4 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors" onclick="return confirm('¿Estás seguro de que quieres eliminar los productos seleccionados? Esta acción no se puede deshacer y su historial quedará archivado.')">
+            <i class="fa-solid fa-trash-can mr-2"></i>Eliminar Seleccionados
+        </button>
+        <a href="{{ url_for('admin.add_product') }}" class="px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            <i class="fa-solid fa-plus mr-2"></i>Añadir Producto
+        </a>
+    </div>
 </div>
+
+<form id="bulk-action-form" action="{{ url_for('admin.bulk_delete_products') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
 <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 mb-6">
     <form method="GET" action="{{ url_for('admin.products') }}" id="filter-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
         <div class="col-span-1">
             <label for="search_name" class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Buscar por Nombre</label>
             <input type="text" name="search_name" id="search_name" value="{{ search_name_value or '' }}"
-                   class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition"
+                   class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition"
                    placeholder="Nombre del producto...">
         </div>
         <div class="col-span-1">
             <label for="search_category" class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría</label>
             <select name="search_category" id="search_category"
-                    class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition">
+                    class="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 transition">
                 <option value="">Todas</option>
                 {% for category_option in distinct_categories_for_filter %}
                     <option value="{{ category_option }}" {% if search_category_value == category_option %}selected{% endif %}>
@@ -32,10 +42,14 @@
         </div>
     </form>
 </div>
+
 <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto border border-gray-200 dark:border-gray-700">
     <table id="products-table" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-700/50">
             <tr>
+                <th class="px-4 py-3 text-center w-10">
+                    <input type="checkbox" id="select-all-checkbox" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                </th>
                 <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nombre</th>
                 <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Descripción</th>
                 <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Categoría</th>
@@ -47,6 +61,9 @@
         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for product in products_on_page %}
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <td class="px-4 py-4 text-center">
+                    <input type="checkbox" name="product_ids" value="{{ product.id }}" form="bulk-action-form" class="product-checkbox w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">{{ product.name }}</td>
                 <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title="{{ product.description }}">{{ product.description or 'N/A' }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400">{{ product.type }}</td>
@@ -61,7 +78,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">No se encontraron productos.</td></tr>
+            <tr><td colspan="7" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">No se encontraron productos.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -90,7 +107,7 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Mi objetivo es que la búsqueda se haga en tiempo real.
+    // Lógica para filtrar en tiempo real (existente)
     const searchInput = document.getElementById('search_name');
     const categorySelect = document.getElementById('search_category');
     const productRows = document.querySelectorAll('#products-table tbody tr');
@@ -100,34 +117,58 @@ document.addEventListener('DOMContentLoaded', function() {
         const categoryTerm = categorySelect.value.toLowerCase();
 
         productRows.forEach(row => {
-            // Me aseguro de que la fila contenga celdas antes de buscar.
-            const nameCell = row.cells[0];
-            const categoryCell = row.cells[2];
+            const nameCell = row.cells[1]; // Ajustado índice por nueva columna checkbox
+            const categoryCell = row.cells[3]; // Ajustado índice por nueva columna checkbox
             
             if (nameCell && categoryCell) {
                 const productName = nameCell.textContent.toLowerCase();
                 const productCategory = categoryCell.textContent.toLowerCase();
 
                 const nameMatch = productName.includes(searchTerm);
-                // Si 'Todas' está seleccionado, la categoría siempre coincide.
                 const categoryMatch = (categoryTerm === '') || (productCategory === categoryTerm);
 
                 if (nameMatch && categoryMatch) {
-                    row.style.display = ''; // Muestro la fila
+                    row.style.display = '';
                 } else {
-                    row.style.display = 'none'; // Oculto la fila
+                    row.style.display = 'none';
                 }
             }
         });
     }
 
-    // Añado los 'event listeners' para que la función se ejecute cada vez que el usuario escribe o cambia la categoría.
-    if (searchInput) {
-        searchInput.addEventListener('input', filterProducts);
+    if (searchInput) searchInput.addEventListener('input', filterProducts);
+    if (categorySelect) categorySelect.addEventListener('change', filterProducts);
+
+    // NUEVO: Lógica para selección múltiple
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const productCheckboxes = document.querySelectorAll('.product-checkbox');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+
+    function updateBulkButton() {
+        const anyChecked = Array.from(productCheckboxes).some(cb => cb.checked);
+        if (anyChecked) {
+            bulkDeleteBtn.classList.remove('hidden');
+        } else {
+            bulkDeleteBtn.classList.add('hidden');
+        }
     }
-    if (categorySelect) {
-        categorySelect.addEventListener('change', filterProducts);
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            productCheckboxes.forEach(cb => {
+                // Solo marcar si la fila es visible (respetando el filtro)
+                if (cb.closest('tr').style.display !== 'none') {
+                    cb.checked = isChecked;
+                }
+            });
+            updateBulkButton();
+        });
     }
+
+    productCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkButton);
+    });
 });
 </script>
 {% endblock %}
