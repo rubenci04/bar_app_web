@@ -107,7 +107,10 @@ class OrderItem(db.Model):
     __tablename__ = 'order_item'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    
+    # ✅ CAMBIO CRÍTICO: nullable=True permite borrar el producto original sin perder el historial de venta
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=True)
+    
     quantity = db.Column(db.Integer, nullable=False)
     unit_price = db.Column(db.Float, nullable=False)
     subtotal = db.Column(db.Float, nullable=False)

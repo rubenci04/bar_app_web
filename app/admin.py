@@ -1,4 +1,4 @@
-# Archivo: app/admin.py (Versión Final con Reportes Avanzados)
+# Archivo: app/admin.py (Versión Final con Reportes Avanzados y CRUD Habilitado)
 import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app, make_response, jsonify
 from . import db, cache, socketio
@@ -6,7 +6,8 @@ from .models import Product, Order, OrderItem, Table, User, CashSession, OrderSt
 from .utils import admin_required, mozo_required, get_current_time, convert_to_local_time, retry_on_db_error
 # [Yo]: Agregué 'time' aquí, es necesario para los filtros de fecha avanzados
 from datetime import datetime, date, timedelta, time
-from sqlalchemy import func
+# [Yo]: Agregamos 'text' para poder ejecutar comandos SQL directos (necesario para desbloquear el borrado)
+from sqlalchemy import func, text
 from flask_login import current_user
 from werkzeug.datastructures import ImmutableMultiDict
 from .exceptions import ConnectionError, ValidationError, TransactionError
@@ -199,14 +200,27 @@ def edit_product(product_id):
 @mozo_required
 @retry_on_db_error(max_retries=3)
 def delete_product(product_id):
+    # [Yo]: Nueva lógica de 'Borrado Inteligente'
     product = Product.query.get_or_404(product_id)
-    if OrderItem.query.filter_by(product_id=product.id).first():
-        flash('No se puede eliminar el producto porque está asociado a uno o más pedidos existentes.', 'danger')
-    else:
-        db.session.delete(product)
-        db.session.commit()
-        invalidate_product_cache()
-        flash('Producto eliminado con éxito.', 'success')
+    
+    # 1. Buscamos todas las ventas históricas de este producto
+    associated_items = OrderItem.query.filter_by(product_id=product.id).all()
+    
+    # 2. "Congelamos" el nombre en el historial y desvinculamos
+    if associated_items:
+        for item in associated_items:
+            # Si no tenía un nombre personalizado, le ponemos el nombre del producto + etiqueta
+            if not item.display_name:
+                item.display_name = f"{product.name} (Histórico)"
+            # Desvinculamos para que la base de datos no grite al borrar el padre
+            item.product_id = None
+    
+    # 3. Ahora sí, borramos el producto físicamente
+    db.session.delete(product)
+    db.session.commit()
+    invalidate_product_cache()
+    
+    flash('Producto eliminado correctamente. Su historial de ventas se ha conservado.', 'success')
     return redirect(url_for('admin.products'))
 
 # [Yo]: ESTA ES LA FUNCIÓN ACTUALIZADA CON TODOS LOS FILTROS Y NUEVAS MÉTRICAS
@@ -796,7 +810,7 @@ def bulk_pay_tables():
         current_app.logger.error(f"Error al cobrar mesas en lote: {str(e)}")
         return jsonify({'success': False, 'message': 'Ocurrió un error en el servidor.'}), 500
 
-# --- AGREGAR ESTO AL FINAL DE app/admin.py ---
+# --- NUEVA SECCIÓN DE HERRAMIENTAS DE MANTENIMIENTO ---
 
 @admin_bp.route('/actualizar-precios-ahora')
 @admin_required
@@ -918,4 +932,19 @@ def update_prices_from_route():
         db.session.rollback()
         flash(f'Error al actualizar: {str(e)}', 'danger')
 
+    return redirect(url_for('admin.products'))
+
+@admin_bp.route('/desbloquear-borrado')
+@admin_required
+def unlock_delete_constraints():
+    """Permite que los ítems de pedido existan sin un producto asociado (para poder borrar)."""
+    try:
+        # Comando SQL para PostgreSQL que hace la columna 'product_id' opcional
+        db.session.execute(text("ALTER TABLE order_item ALTER COLUMN product_id DROP NOT NULL;"))
+        db.session.commit()
+        flash("¡Sistema desbloqueado! Ahora puedes borrar productos libremente.", "success")
+    except Exception as e:
+        db.session.rollback()
+        # Si falla, probablemente es porque ya se ejecutó o es SQLite local
+        flash(f"Aviso: {str(e)}", "warning")
     return redirect(url_for('admin.products'))
